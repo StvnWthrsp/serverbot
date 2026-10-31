@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/serverbot.json
+/data/
+*.test
+*.out
+.env
+.env.*

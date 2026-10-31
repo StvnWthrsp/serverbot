@@ -1,0 +1,7 @@
+{
+  "server_dir": "C:\\Minecraft\\server",
+  "rcon_address": "127.0.0.1:25575",
+  "audit_file": "data/audit.jsonl",
+  "poll_interval_ms": 1000,
+  "request_timeout_seconds": 15
+}
