@@ -14,7 +14,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && (d.Name() == ".git" || d.Name() == "bin" || d.Name() == "dist") {
+		if d.IsDir() && (d.Name() == ".git" || d.Name() == ".cache" || d.Name() == "bin" || d.Name() == "dist") {
 			return filepath.SkipDir
 		}
 		if d.IsDir() || !strings.HasSuffix(path, ".go") {

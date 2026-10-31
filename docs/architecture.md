@@ -24,4 +24,4 @@ There is no general-purpose shell or file-write tool exposed to a planner. The p
 
 RCON and audit writes do not form a transaction. Failed execution/verification can leave uncertain state. Started jobs are not retried automatically. Recovery and supervision are required before adding disruptive operations.
 
-GitHub Actions tests Windows/Linux natively. Release builds target amd64/arm64; arm64 runtime tests are not yet implemented. Automated live deployment and GitLab CI remain later milestones.
+GitHub Actions tests Windows/Linux natively; GitLab CI runs the shared checks in a Linux container. Both package Windows/Linux amd64/arm64; arm64 runtime tests are not yet implemented. GitHub is the primary repository, with explicit feature-branch pushes to GitLab using `tools/sync`. Automated live deployment remains a later milestone.

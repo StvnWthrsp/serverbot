@@ -24,8 +24,8 @@
 ## Distribution and portfolio
 
 - [ ] Review the feature PR and make the repository public when ready.
-- [ ] GitLab repository/CI after account setup, reusing the Go tools.
-- [ ] Choose synchronization direction and prevent mirror-trigger loops.
+- [x] GitLab repository/CI, reusing the Go tools.
+- [x] GitHub primary, explicit one-way synchronization to GitLab without pipeline loops.
 - [ ] Isolated Windows self-managed runner if needed.
 - [ ] Manual test-environment deployment and rollback demonstration.
 - [ ] Release provenance/signing, install/update docs and public release.

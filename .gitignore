@@ -2,6 +2,7 @@
 /dist/
 /serverbot.json
 /data/
+/.cache/
 *.test
 *.out
 .env

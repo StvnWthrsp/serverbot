@@ -71,4 +71,4 @@ The check command enforces formatting, runs `go vet`, tests with race detection 
 
 Tags such as `v0.1.0` rerun Windows/Linux checks, scan for known Go vulnerabilities, package binaries and create a **draft** GitHub release. They do not deploy to Minecraft. No release has been published yet.
 
-GitHub Actions is the initial provider. The Go check/packaging commands can be reused by GitLab CI later. See [the roadmap](docs/roadmap.md) and [architecture](docs/architecture.md).
+GitHub Actions and GitLab CI use the same Go check/packaging commands. GitHub is the primary repository and runs native Windows/Linux tests; GitLab runs Linux verification and produces four-target package artifacts. Use `go run ./tools/sync` to explicitly push a feature branch to both providers. See [CI/CD and synchronization](docs/ci-cd.md), [the roadmap](docs/roadmap.md) and [architecture](docs/architecture.md).
