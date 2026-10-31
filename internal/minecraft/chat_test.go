@@ -8,6 +8,7 @@ func TestChatEnvelopesAndInjection(t *testing.T) {
 		want bool
 	}{
 		{"[12:00:00] [Server thread/INFO]: <Admin> serverbot status", true},
+		{"[12:00:00] [Server thread/INFO]: <Admin> serverbot, please whitelist Friend_1", true},
 		{"[12Jun2026 08:58:05.596] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: <Admin> SeRvErBoT status", true},
 		{"[12:00:00] [Server thread/INFO]: <Stranger> <Admin> serverbot status", false},
 		{"[12:00:00] [Server thread/INFO]: [Server] <Admin> serverbot status", false},

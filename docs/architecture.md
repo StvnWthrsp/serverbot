@@ -14,13 +14,14 @@ flowchart LR
 ```
 
 - `internal/minecraft`: parsing/tailing and fail-closed OP checks. Standard online-mode server logs are a trusted input, not cryptographic identity evidence.
-- `internal/bot`: planner interface, policy, serialized execution, verification and journal. The built-in planner recognizes two explicit operations. Tests inject an untrusted planner to exercise enforcement.
+- `internal/bot`: planner interface, policy, serialized execution, verification and journal. Validates proposals independently and binds whitelist targets to the player's request. The built-in planner recognizes two explicit operations.
+- `internal/opencode`: optional tool-free stateless JSON proposal adapter, pinned to OpenCode 2.0.32. No chat logs/server configuration or credentials are sent to the model. Tests exercise malicious output, HTTP failure/cancellation and OP revocation through the full engine.
 - `internal/rcon`: length-bounded protocol client with authentication, deadlines, cancellation and multipart/empty responses.
 - `internal/config`: strict JSON configuration; requires loopback RCON and keeps credentials outside files.
 - `cmd/serverbot`: CLI, cancellation and private chat delivery.
 - `tools/check`, `tools/release`: portable CI entry points.
 
-There is no general-purpose shell or file-write tool exposed to a planner. The planned OpenCode adapter must be independently constrained so its remote session cannot invoke unrestricted host tools. Prompt instructions alone are insufficient.
+There is no general-purpose shell or file-write tool exposed to a planner. The OpenCode adapter uses a reviewed stateless model call instead of a remote agent session; its HTTP client cannot redirect or use environment proxies. Both CI providers verify the pinned real runtime sends no tools to a local fake model. Prompt instructions alone are insufficient, so Go still enforces authorization, plan validation and verification.
 
 RCON and audit writes do not form a transaction. Failed execution/verification can leave uncertain state. Started jobs are not retried automatically. Recovery and supervision are required before adding disruptive operations.
 

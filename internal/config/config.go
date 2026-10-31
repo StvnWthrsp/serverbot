@@ -9,14 +9,18 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/StvnWthrsp/serverbot/internal/opencode"
 )
 
 type Config struct {
-	ServerDir             string `json:"server_dir"`
-	RCONAddress           string `json:"rcon_address"`
-	AuditFile             string `json:"audit_file"`
-	PollIntervalMS        int    `json:"poll_interval_ms"`
-	RequestTimeoutSeconds int    `json:"request_timeout_seconds"`
+	ServerDir             string           `json:"server_dir"`
+	RCONAddress           string           `json:"rcon_address"`
+	AuditFile             string           `json:"audit_file"`
+	PollIntervalMS        int              `json:"poll_interval_ms"`
+	RequestTimeoutSeconds int              `json:"request_timeout_seconds"`
+	Planner               string           `json:"planner,omitempty"`
+	OpenCode              *opencode.Config `json:"opencode,omitempty"`
 }
 
 func Load(path string) (Config, error) {
@@ -47,6 +51,24 @@ func Load(path string) (Config, error) {
 	}
 	if c.RequestTimeoutSeconds < 1 || c.RequestTimeoutSeconds > 300 {
 		return c, errors.New("request_timeout_seconds must be between 1 and 300")
+	}
+	if c.Planner == "" {
+		c.Planner = "commands"
+	}
+	switch c.Planner {
+	case "commands":
+		if c.OpenCode != nil {
+			return c, errors.New("opencode configuration requires planner=opencode")
+		}
+	case "opencode":
+		if c.OpenCode == nil {
+			return c, errors.New("opencode configuration is required")
+		}
+		if err := c.OpenCode.Validate(); err != nil {
+			return c, err
+		}
+	default:
+		return c, errors.New("planner must be commands or opencode")
 	}
 	base, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {

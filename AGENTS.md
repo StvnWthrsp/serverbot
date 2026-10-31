@@ -1,6 +1,6 @@
 # ServerBot
 
-Go Minecraft administration assistant. Work on feature branches. Keep checks portable between GitHub Actions and future GitLab CI. Run `go run ./tools/check` before committing.
+Go Minecraft administration assistant. Work on feature branches. GitHub is primary; use `go run ./tools/sync` to push feature branches to GitHub and GitLab. Keep checks portable between both providers. Run `go run ./tools/check` before committing. For planner changes also run `go run ./tools/contract` on Linux amd64.
 
 Never copy credentials, player lists, server worlds, or historical OpenCode sessions into this repository. Do not operate the live Minecraft server as part of development. Tests use isolated fixtures and local fake services.
 
