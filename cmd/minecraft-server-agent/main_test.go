@@ -21,9 +21,9 @@ func TestVersionAndHelpNeedNoCredentials(t *testing.T) {
 }
 
 func TestConnectReadsKeyEnvironmentWithoutMinecraft(t *testing.T) {
-	t.Setenv("SERVERBOT_RCON_PASSWORD", "")
-	t.Setenv("SERVERBOT_OPENCODE_PASSWORD", "synthetic-server-password")
-	for _, envName := range []string{"SERVERBOT_PROVIDER_API_KEY", "OPENROUTER_API_KEY"} {
+	t.Setenv("MSA_RCON_PASSWORD", "")
+	t.Setenv("MSA_OPENCODE_PASSWORD", "synthetic-server-password")
+	for _, envName := range []string{"MSA_PROVIDER_API_KEY", "OPENROUTER_API_KEY"} {
 		t.Run(envName, func(t *testing.T) {
 			calls := 0
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +52,7 @@ func TestConnectReadsKeyEnvironmentWithoutMinecraft(t *testing.T) {
 				t.Fatal(err)
 			}
 			args := []string{"connect", "-config", path}
-			if envName != "SERVERBOT_PROVIDER_API_KEY" {
+			if envName != "MSA_PROVIDER_API_KEY" {
 				args = append(args, "-key-env", envName)
 			}
 			var out bytes.Buffer
@@ -81,8 +81,8 @@ func TestCLIRejectsUnknownCommand(t *testing.T) {
 }
 
 func TestNaturalLanguagePreviewNeedsNoRCON(t *testing.T) {
-	t.Setenv("SERVERBOT_RCON_PASSWORD", "")
-	t.Setenv("SERVERBOT_OPENCODE_PASSWORD", "synthetic-test-only")
+	t.Setenv("MSA_RCON_PASSWORD", "")
+	t.Setenv("MSA_OPENCODE_PASSWORD", "synthetic-test-only")
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/info" {
 			w.Write([]byte(`{"version":"2.0.32"}`))
@@ -103,7 +103,7 @@ func TestNaturalLanguagePreviewNeedsNoRCON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := run(t.Context(), []string{"plan", "-config", path, "-message", "serverbot, please whitelist Friend_1"}, &out); err != nil {
+	if err := run(t.Context(), []string{"plan", "-config", path, "-message", "minecraft-server-agent, please whitelist Friend_1"}, &out); err != nil {
 		t.Fatal(err)
 	}
 	var proposal map[string]string

@@ -1,7 +1,7 @@
 # GitHub and GitLab CI/CD
 
-GitHub is the primary repository: https://github.com/StvnWthrsp/serverbot.
-GitLab holds a secondary copy for pipeline execution: https://gitlab.com/stvnwthrsp/serverbot.
+GitHub is the primary repository: https://github.com/StvnWthrsp/minecraft-server-agent.
+GitLab holds a secondary copy for pipeline execution: https://gitlab.com/stvnwthrsp/minecraft-server-agent.
 GitHub is public; the GitLab copy is private. Contributions and merges happen on GitHub; do not independently merge changes in GitLab.
 
 ## Pipeline responsibilities
@@ -24,7 +24,7 @@ GitLab's initial pipeline uses a versioned official Go Linux image and hosted Li
 Authenticate using `gh auth login` and `glab auth login`. Configure the GitLab remote and repository-local credential helpers (no tokens are stored in source):
 
 ```sh
-git remote add gitlab https://gitlab.com/stvnwthrsp/serverbot.git
+git remote add gitlab https://gitlab.com/stvnwthrsp/minecraft-server-agent.git
 git config credential.https://github.com.helper '!gh auth git-credential'
 git config credential.https://gitlab.com.helper '!glab auth git-credential'
 ```

@@ -12,7 +12,7 @@
         "response_format": {
           "type": "json_schema",
           "json_schema": {
-            "name": "serverbot_proposal",
+            "name": "minecraft-server-agent_proposal",
             "strict": true,
             "schema": {
               "type": "object",

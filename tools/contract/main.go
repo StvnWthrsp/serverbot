@@ -28,9 +28,9 @@ func main() {
 
 func run() error {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		return fmt.Errorf("automatic contract setup requires Linux amd64; other hosts can set SERVERBOT_TEST_OPENCODE and run the test directly")
+		return fmt.Errorf("automatic contract setup requires Linux amd64; other hosts can set MSA_TEST_OPENCODE and run the test directly")
 	}
-	dir, err := os.MkdirTemp("", "serverbot-contract-")
+	dir, err := os.MkdirTemp("", "minecraft-server-agent-contract-")
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func run() error {
 		return fmt.Errorf("OpenCode binary missing from verified archive")
 	}
 	cmd := exec.Command("go", "test", "-race", "-count=1", "-timeout", "75s", "-run", "^TestPinnedRuntimeContract$", "-v", "./internal/opencode")
-	cmd.Env = append(os.Environ(), "SERVERBOT_TEST_OPENCODE="+binary)
+	cmd.Env = append(os.Environ(), "MSA_TEST_OPENCODE="+binary)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	return cmd.Run()
 }

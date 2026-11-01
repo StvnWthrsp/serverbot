@@ -25,6 +25,18 @@ func TestConfigRejectsRemoteRCONUnknownFieldsAndMultipleDocuments(t *testing.T) 
 	if c.AuditFile != filepath.Join(filepath.Dir(path), "audit.jsonl") {
 		t.Fatal("relative paths not anchored to config")
 	}
+	if c.Limits == nil || c.Limits.PlayerCooldownSeconds != 10 || c.Limits.QueueCapacity != 8 || c.Limits.InferenceCallsPerHour != 60 {
+		t.Fatal("missing limits did not receive conservative defaults")
+	}
+}
+
+func TestExplicitLimitsCannotDisableProtection(t *testing.T) {
+	for _, limits := range []Limits{{0, 8, 60}, {-1, 8, 60}, {3601, 8, 60}, {10, 0, 60}, {10, 101, 60}, {10, 8, 0}, {10, 8, 10001}} {
+		c := Config{ServerDir: "server", RCONAddress: "127.0.0.1:25575", AuditFile: "audit.jsonl", PollIntervalMS: 1000, RequestTimeoutSeconds: 15, Limits: &limits}
+		if err := c.Validate(); err == nil {
+			t.Fatalf("accepted unsafe limits: %+v", limits)
+		}
+	}
 }
 
 func TestPlannerConfiguration(t *testing.T) {

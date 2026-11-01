@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/StvnWthrsp/serverbot/internal/bot"
-	"github.com/StvnWthrsp/serverbot/internal/minecraft"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/bot"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/minecraft"
 )
 
 func fixture(t *testing.T, handler http.HandlerFunc) *Planner {
@@ -68,7 +68,7 @@ func TestStatelessNaturalLanguageProposal(t *testing.T) {
 	p := fixture(t, func(w http.ResponseWriter, r *http.Request) {
 		reply(w, `{"action":"whitelist_add","target":"Friend_1"}`)
 	})
-	plan, err := p.Plan(t.Context(), "serverbot, please whitelist Friend_1")
+	plan, err := p.Plan(t.Context(), "minecraft-server-agent, please whitelist Friend_1")
 	if err != nil || plan != (bot.Plan{Action: "whitelist_add", Target: "Friend_1"}) {
 		t.Fatalf("%+v %v", plan, err)
 	}
@@ -86,7 +86,7 @@ func TestRejectsUnsafeOrMalformedModelOutput(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%x", text[:min(len(text), 12)]), func(t *testing.T) {
 			p := fixture(t, func(w http.ResponseWriter, r *http.Request) { reply(w, text) })
-			if _, err := p.Plan(t.Context(), "serverbot status"); err == nil {
+			if _, err := p.Plan(t.Context(), "minecraft-server-agent status"); err == nil {
 				t.Fatal("unsafe output accepted")
 			}
 		})
@@ -99,7 +99,7 @@ func TestVersionMismatchNeverGenerates(t *testing.T) {
 	defer s.Close()
 	p, _ := New(Config{URL: s.URL, ProviderID: "test", ModelID: "test"}, "", "fake")
 	defer p.Close()
-	if _, err := p.Plan(t.Context(), "serverbot status"); err == nil || calls.Load() != 1 {
+	if _, err := p.Plan(t.Context(), "minecraft-server-agent status"); err == nil || calls.Load() != 1 {
 		t.Fatal("unsupported runtime used for generation")
 	}
 }
@@ -127,7 +127,7 @@ func TestFailuresAndOversizedResponsesDoNotLeakBodies(t *testing.T) {
 					fmt.Fprint(w, `{"data":{}}`)
 				}
 			})
-			_, err := p.Plan(t.Context(), "serverbot status")
+			_, err := p.Plan(t.Context(), "minecraft-server-agent status")
 			if err == nil || strings.Contains(err.Error(), "private-provider-error") || strings.Contains(err.Error(), "synthetic-test-only") {
 				t.Fatalf("unsafe error: %v", err)
 			}
@@ -139,7 +139,7 @@ func TestTimeoutCancelsGeneration(t *testing.T) {
 	p := fixture(t, func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() })
 	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Millisecond)
 	defer cancel()
-	_, err := p.Plan(ctx, "serverbot please whitelist Friend_1")
+	_, err := p.Plan(ctx, "minecraft-server-agent please whitelist Friend_1")
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("deadline lost: %v", err)
 	}
@@ -197,9 +197,9 @@ func TestHTTPPlannerThroughAuthorizedEngine(t *testing.T) {
 			if mode == "non-op" {
 				player = "Stranger"
 			}
-			text := "serverbot please whitelist Friend_1"
+			text := "minecraft-server-agent please whitelist Friend_1"
 			if mode == "invented-target" {
-				text = "serverbot whitelist somebody"
+				text = "minecraft-server-agent whitelist somebody"
 			}
 			ctx := t.Context()
 			if mode == "timeout" {

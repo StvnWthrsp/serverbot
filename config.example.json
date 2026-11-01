@@ -3,5 +3,10 @@
   "rcon_address": "127.0.0.1:25575",
   "audit_file": "data/audit.jsonl",
   "poll_interval_ms": 1000,
-  "request_timeout_seconds": 15
+  "request_timeout_seconds": 15,
+  "limits": {
+    "player_cooldown_seconds": 10,
+    "queue_capacity": 8,
+    "inference_calls_per_hour": 60
+  }
 }

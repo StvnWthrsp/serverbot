@@ -1,6 +1,6 @@
 /bin/
 /dist/
-/serverbot.json
+/minecraft-server-agent.json
 /data/
 /.cache/
 *.test

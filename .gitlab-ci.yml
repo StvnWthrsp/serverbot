@@ -54,6 +54,6 @@ packages:
     - go run ./tools/release -version "${CI_COMMIT_TAG:-dev}"
     - cd dist && sha256sum --check SHA256SUMS
   artifacts:
-    name: "serverbot-$CI_COMMIT_SHORT_SHA"
+    name: "minecraft-server-agent-$CI_COMMIT_SHORT_SHA"
     paths: [dist/]
     expire_in: 14 days

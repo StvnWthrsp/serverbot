@@ -10,10 +10,17 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/StvnWthrsp/serverbot/internal/opencode"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/opencode"
 )
 
+type Limits struct {
+	PlayerCooldownSeconds int `json:"player_cooldown_seconds"`
+	QueueCapacity         int `json:"queue_capacity"`
+	InferenceCallsPerHour int `json:"inference_calls_per_hour"`
+}
+
 type Config struct {
+	Limits                *Limits          `json:"limits,omitempty"`
 	ServerDir             string           `json:"server_dir"`
 	RCONAddress           string           `json:"rcon_address"`
 	AuditFile             string           `json:"audit_file"`
@@ -38,37 +45,8 @@ func Load(path string) (Config, error) {
 	if err := d.Decode(new(any)); err != io.EOF {
 		return c, errors.New("config must contain one JSON object")
 	}
-	if c.ServerDir == "" || c.AuditFile == "" {
-		return c, errors.New("server_dir and audit_file are required")
-	}
-	host, port, err := net.SplitHostPort(c.RCONAddress)
-	n, portErr := strconv.Atoi(port)
-	if err != nil || portErr != nil || n < 1 || n > 65535 || (host != "127.0.0.1" && host != "::1") {
-		return c, errors.New("rcon_address must use a loopback IP and valid port")
-	}
-	if c.PollIntervalMS < 100 || c.PollIntervalMS > 60000 {
-		return c, errors.New("poll_interval_ms must be between 100 and 60000")
-	}
-	if c.RequestTimeoutSeconds < 1 || c.RequestTimeoutSeconds > 300 {
-		return c, errors.New("request_timeout_seconds must be between 1 and 300")
-	}
-	if c.Planner == "" {
-		c.Planner = "commands"
-	}
-	switch c.Planner {
-	case "commands":
-		if c.OpenCode != nil {
-			return c, errors.New("opencode configuration requires planner=opencode")
-		}
-	case "opencode":
-		if c.OpenCode == nil {
-			return c, errors.New("opencode configuration is required")
-		}
-		if err := c.OpenCode.Validate(); err != nil {
-			return c, err
-		}
-	default:
-		return c, errors.New("planner must be commands or opencode")
+	if err := c.Validate(); err != nil {
+		return c, err
 	}
 	base, err := filepath.Abs(filepath.Dir(path))
 	if err != nil {
@@ -81,4 +59,79 @@ func Load(path string) (Config, error) {
 		c.AuditFile = filepath.Join(base, c.AuditFile)
 	}
 	return c, nil
+}
+
+func (c *Config) Validate() error {
+	if c.ServerDir == "" || c.AuditFile == "" {
+		return errors.New("server_dir and audit_file are required")
+	}
+	host, port, err := net.SplitHostPort(c.RCONAddress)
+	n, portErr := strconv.Atoi(port)
+	if err != nil || portErr != nil || n < 1 || n > 65535 || (host != "127.0.0.1" && host != "::1") {
+		return errors.New("rcon_address must use a loopback IP and valid port")
+	}
+	if c.PollIntervalMS < 100 || c.PollIntervalMS > 60000 {
+		return errors.New("poll_interval_ms must be between 100 and 60000")
+	}
+	if c.RequestTimeoutSeconds < 1 || c.RequestTimeoutSeconds > 300 {
+		return errors.New("request_timeout_seconds must be between 1 and 300")
+	}
+	if c.Planner == "" {
+		c.Planner = "commands"
+	}
+	if c.Limits == nil {
+		c.Limits = &Limits{PlayerCooldownSeconds: 10, QueueCapacity: 8, InferenceCallsPerHour: 60}
+	}
+	if c.Limits.PlayerCooldownSeconds < 1 || c.Limits.PlayerCooldownSeconds > 3600 || c.Limits.QueueCapacity < 1 || c.Limits.QueueCapacity > 100 || c.Limits.InferenceCallsPerHour < 1 || c.Limits.InferenceCallsPerHour > 10000 {
+		return errors.New("limits require player_cooldown_seconds=1..3600, queue_capacity=1..100 and inference_calls_per_hour=1..10000")
+	}
+	switch c.Planner {
+	case "commands":
+		if c.OpenCode != nil {
+			return errors.New("opencode configuration requires planner=opencode")
+		}
+	case "opencode":
+		if c.OpenCode == nil {
+			return errors.New("opencode configuration is required")
+		}
+		if err := c.OpenCode.Validate(); err != nil {
+			return err
+		}
+	default:
+		return errors.New("planner must be commands or opencode")
+	}
+	return nil
+}
+
+// SaveNew refuses to overwrite any existing file, including symlinks.
+func SaveNew(path string, c Config) error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return errors.New("cannot create configuration; choose a new path in an existing directory")
+	}
+	ok := false
+	defer func() {
+		f.Close()
+		if !ok {
+			os.Remove(path)
+		}
+	}()
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	ok = true
+	return nil
 }
