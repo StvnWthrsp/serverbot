@@ -10,7 +10,7 @@ A Go Minecraft administration assistant being rebuilt from a personal PowerShell
 - Checks `ops.json` for every request and immediately before execution. Fails closed on missing/malformed permissions and requires `online-mode=true`.
 - Supports `serverbot status`, `serverbot whitelist Friend_1`, and `serverbot whitelist add Friend_1`.
 - With the optional OpenCode planner, understands requests such as `serverbot, please whitelist Friend_1`. Go validates proposals and requires targets to be explicitly named.
-- OpenCode can use OpenRouter with an OCI-managed key. A recorded synthetic live-provider evaluation passed 18/18 cases; see [setup and results](docs/openrouter.md).
+- Connect your chosen provider through OpenCode using an API key or its supported OAuth sign-in; see [provider setup](docs/opencode.md#provider-authentication) and the [OpenRouter example](docs/openrouter.md).
 - Executes validated operations through local RCON. Whitelist additions are verified using `whitelist list` before success is reported.
 - Replies privately to the requesting player with JSON-encoded `tellraw` messages.
 - Records jobs to a synced JSONL journal before execution. Previously started jobs are not automatically replayed after restart.

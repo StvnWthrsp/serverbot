@@ -35,13 +35,13 @@ func main() {
 
 func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: serverbot version | doctor | run | request | plan (use -h for command flags)")
+		return errors.New("usage: serverbot version | doctor | run | request | plan | connect (use -h for command flags)")
 	}
 	if args[0] == "version" {
 		fmt.Fprintln(out, version)
 		return nil
 	}
-	if args[0] != "doctor" && args[0] != "run" && args[0] != "request" && args[0] != "plan" {
+	if args[0] != "doctor" && args[0] != "run" && args[0] != "request" && args[0] != "plan" && args[0] != "connect" {
 		return errors.New("unknown command")
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
@@ -49,6 +49,10 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	configPath := flags.String("config", "serverbot.json", "path to configuration JSON")
 	player := flags.String("player", "", "OP player name (local diagnostic request only)")
 	text := flags.String("message", "", "serverbot request (request or plan)")
+	var keyEnv *string
+	if args[0] == "connect" {
+		keyEnv = flags.String("key-env", "SERVERBOT_PROVIDER_API_KEY", "environment variable containing the selected provider's API key")
+	}
 	if err := flags.Parse(args[1:]); err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -72,6 +76,18 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		}
 		defer model.Close()
 		planner = model
+	}
+	if args[0] == "connect" {
+		if model == nil {
+			return errors.New("connect requires planner opencode in the configuration")
+		}
+		reqCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		if err := model.ConnectKey(reqCtx, os.Getenv(*keyEnv)); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Provider credential saved by OpenCode. Use serverbot plan to check model access.")
+		return nil
 	}
 	if args[0] == "plan" {
 		if *text == "" {

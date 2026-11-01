@@ -21,8 +21,6 @@ import (
 const Version = "2.0.32"
 const maxResponse = 64 * 1024
 
-var ErrRefused = errors.New("request refused: ask for server status or whitelist one named player")
-
 type Config struct {
 	URL        string `json:"url"`
 	ProviderID string `json:"provider_id"`
@@ -78,6 +76,24 @@ func New(c Config, username, password string) (*Planner, error) {
 }
 
 func (p *Planner) Close() { p.client.CloseIdleConnections() }
+
+// ConnectKey stores the selected provider's credential through OpenCode's credential manager.
+func (p *Planner) ConnectKey(ctx context.Context, key string) error {
+	if strings.TrimSpace(key) == "" || len(key) > 16*1024 || strings.ContainsAny(key, "\x00\r\n") {
+		return errors.New("provider API key is missing or invalid")
+	}
+	if err := p.Check(ctx); err != nil {
+		return err
+	}
+	// Listing waits for OpenCode's provider integrations to finish initializing.
+	var integrations json.RawMessage
+	if err := p.request(ctx, http.MethodGet, "/api/integration", nil, &integrations, false); err != nil {
+		return err
+	}
+	return p.request(ctx, http.MethodPost, "/api/integration/"+url.PathEscape(p.config.ProviderID)+"/connect/key", struct {
+		Key string `json:"key"`
+	}{Key: key}, nil, false)
+}
 
 // Check gates every generation on the exact server version whose no-tools implementation was reviewed.
 func (p *Planner) Check(ctx context.Context) error {
@@ -157,8 +173,14 @@ func (p *Planner) request(ctx context.Context, method, path string, body, out an
 		return errors.New("OpenCode request failed or timed out")
 	}
 	defer resp.Body.Close()
+	if out == nil && resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("OpenCode returned HTTP %d; no action taken", resp.StatusCode)
+	}
+	if out == nil {
+		return errors.New("unexpected OpenCode credential response")
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
 	if err != nil {
@@ -219,7 +241,7 @@ func parsePlan(text string) (bot.Plan, error) {
 	}
 	plan := bot.Plan{Action: fields["action"], Target: fields["target"]}
 	if plan.Action == "refuse" && plan.Target == "" {
-		return bot.Plan{}, ErrRefused
+		return bot.Plan{}, errors.New("request refused: ask for server status or whitelist one named player")
 	}
 	if bot.ValidatePlan(plan) != nil {
 		return bot.Plan{}, bad

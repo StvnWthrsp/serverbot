@@ -7,7 +7,7 @@
   "planner": "opencode",
   "opencode": {
     "url": "http://127.0.0.1:4096",
-    "provider_id": "openrouter",
-    "model_id": "deepseek/deepseek-v4.1-flash"
+    "provider_id": "your-configured-provider",
+    "model_id": "your-configured-model"
   }
 }

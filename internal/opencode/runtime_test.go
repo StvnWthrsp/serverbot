@@ -123,6 +123,17 @@ func TestPinnedRuntimeContract(t *testing.T) {
 	if server.url == "" || server.password == "" {
 		t.Fatal("OpenCode startup failed (startup output kept private)")
 	}
+	connection, err := New(Config{URL: server.url, ProviderID: "openrouter", ModelID: "unused"}, "", server.password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	if err := connection.ConnectKey(ctx, "synthetic-test-only"); err != nil {
+		t.Fatal(err)
+	}
+	if modelCalls.Load() != 0 {
+		t.Fatal("connecting a credential invoked the model")
+	}
 	p, err := New(Config{URL: server.url, ProviderID: "serverbot-test", ModelID: "planner-test"}, "", server.password)
 	if err != nil {
 		t.Fatal(err)
