@@ -53,7 +53,7 @@ func run() error {
 		}
 		archiveName := fmt.Sprintf("minecraft-server-agent_%s_%s_%s.zip", *version, target.os, target.arch)
 		archive := filepath.Join(*output, archiveName)
-		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json", "config.opencode.example.json": "config.opencode.example.json", "docs/opencode.md": "docs/opencode.md", "docs/openrouter.md": "docs/openrouter.md", "docs/setup.md": "docs/setup.md", "docs/request-limits.md": "docs/request-limits.md", "examples/opencode/opencode.json": "examples/opencode/opencode.json", "examples/opencode/openrouter.json": "examples/opencode/openrouter.json"})
+		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json", "config.opencode.example.json": "config.opencode.example.json", "config.agent.example.json": "config.agent.example.json", "docs/agent.md": "docs/agent.md", "docs/opencode.md": "docs/opencode.md", "docs/openrouter.md": "docs/openrouter.md", "docs/setup.md": "docs/setup.md", "docs/request-limits.md": "docs/request-limits.md", "examples/opencode/opencode.json": "examples/opencode/opencode.json", "examples/opencode/openrouter.json": "examples/opencode/openrouter.json"})
 		os.RemoveAll(tmp)
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ func pack(path string, files map[string]string) error {
 		return err
 	}
 	z := zip.NewWriter(f)
-	names := []string{"minecraft-server-agent", "minecraft-server-agent.exe", "README.md", "LICENSE", "config.example.json", "config.opencode.example.json", "docs/opencode.md", "docs/openrouter.md", "docs/setup.md", "docs/request-limits.md", "examples/opencode/opencode.json", "examples/opencode/openrouter.json"}
+	names := []string{"minecraft-server-agent", "minecraft-server-agent.exe", "README.md", "LICENSE", "config.example.json", "config.opencode.example.json", "config.agent.example.json", "docs/agent.md", "docs/opencode.md", "docs/openrouter.md", "docs/setup.md", "docs/request-limits.md", "examples/opencode/opencode.json", "examples/opencode/openrouter.json"}
 	for _, name := range names {
 		source, ok := files[name]
 		if !ok {

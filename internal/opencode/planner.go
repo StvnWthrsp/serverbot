@@ -1,4 +1,4 @@
-// Package opencode proposes plans through OpenCode's stateless, tool-free generation API.
+// Package opencode connects Minecraft chat to OpenCode sessions and optional read-only proposals.
 package opencode
 
 import (
@@ -21,10 +21,17 @@ import (
 const Version = "2.0.32"
 const maxResponse = 64 * 1024
 
+type httpStatusError struct{ code int }
+
+func (e httpStatusError) Error() string {
+	return fmt.Sprintf("OpenCode returned HTTP %d; no action taken", e.code)
+}
+
 type Config struct {
 	URL        string `json:"url"`
 	ProviderID string `json:"provider_id"`
 	ModelID    string `json:"model_id"`
+	AgentID    string `json:"agent_id,omitempty"`
 }
 
 func (c Config) Validate() error {
@@ -42,6 +49,9 @@ func (c Config) Validate() error {
 		if s == "" || len(s) > 200 || strings.ContainsAny(s, "\x00\r\n\t ") {
 			return errors.New("OpenCode provider_id and model_id are required identifiers")
 		}
+	}
+	if len(c.AgentID) > 200 || strings.ContainsAny(c.AgentID, "\x00\r\n\t ") {
+		return errors.New("invalid OpenCode agent_id")
 	}
 	return nil
 }
@@ -95,7 +105,7 @@ func (p *Planner) ConnectKey(ctx context.Context, key string) error {
 	}{Key: key}, nil, false)
 }
 
-// Check gates every generation on the exact server version whose no-tools implementation was reviewed.
+// Check gates requests on the runtime version covered by the integration contract.
 func (p *Planner) Check(ctx context.Context) error {
 	var info struct {
 		Version string `json:"version"`
@@ -148,6 +158,10 @@ func (p *Planner) Plan(ctx context.Context, text string) (bot.Plan, error) {
 }
 
 func (p *Planner) request(ctx context.Context, method, path string, body, out any, strict bool) error {
+	return p.requestLimit(ctx, method, path, body, out, strict, maxResponse)
+}
+
+func (p *Planner) requestLimit(ctx context.Context, method, path string, body, out any, strict bool, limit int) error {
 	var reader io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -177,19 +191,19 @@ func (p *Planner) request(ctx context.Context, method, path string, body, out an
 		return nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("OpenCode returned HTTP %d; no action taken", resp.StatusCode)
+		return httpStatusError{code: resp.StatusCode}
 	}
 	if out == nil {
-		return errors.New("unexpected OpenCode credential response")
+		return errors.New("unexpected OpenCode response; expected no content")
 	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
+	b, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
 	if err != nil {
 		if ctx.Err() != nil {
 			return fmt.Errorf("OpenCode response cancelled: %w", ctx.Err())
 		}
 		return errors.New("cannot read OpenCode response")
 	}
-	if len(b) > maxResponse {
+	if len(b) > limit {
 		return errors.New("OpenCode response exceeds size limit")
 	}
 	d := json.NewDecoder(bytes.NewReader(b))

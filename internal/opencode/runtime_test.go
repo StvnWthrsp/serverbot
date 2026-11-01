@@ -57,11 +57,6 @@ func TestPinnedRuntimeContract(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"id": "test-completion", "object": "chat.completion", "created": 1, "model": "planner-test", "choices": []any{map[string]any{"index": 0, "message": map[string]string{"role": "assistant", "content": proposal}, "finish_reason": "stop"}}})
 	}))
 	defer model.Close()
-	root := t.TempDir()
-	configDir := filepath.Join(root, "config", "opencode")
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		t.Fatal(err)
-	}
 	config := map[string]any{
 		"permissions": []any{map[string]string{"action": "*", "resource": "*", "effect": "deny"}},
 		"providers": map[string]any{"minecraft-server-agent-test": map[string]any{
@@ -70,59 +65,9 @@ func TestPinnedRuntimeContract(t *testing.T) {
 			"models":   map[string]any{"planner-test": map[string]any{"limit": map[string]int{"context": 8192, "output": 256}}},
 		}},
 	}
-	b, _ := json.Marshal(config)
-	if err := os.WriteFile(filepath.Join(configDir, "opencode.json"), b, 0600); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
-	cmd := exec.CommandContext(ctx, binary, "serve", "--hostname", "127.0.0.1", "--port", "0")
-	cmd.Dir = root
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "USERPROFILE=" + root, "XDG_CONFIG_HOME=" + filepath.Join(root, "config"), "XDG_DATA_HOME=" + filepath.Join(root, "data"), "XDG_CACHE_HOME=" + filepath.Join(root, "cache"), "XDG_STATE_HOME=" + filepath.Join(root, "state"), "TMPDIR=" + root}
-	for _, key := range []string{"SystemRoot", "SYSTEMROOT", "TEMP", "TMP"} {
-		if value := os.Getenv(key); value != "" {
-			cmd.Env = append(cmd.Env, key+"="+value)
-		}
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cancel()
-		t.Fatal(err)
-	}
-	cmd.Stderr = io.Discard
-	if err := cmd.Start(); err != nil {
-		cancel()
-		t.Fatal("cannot start pinned OpenCode runtime")
-	}
-	t.Cleanup(func() { cancel(); cmd.Wait() })
-	type startup struct{ url, password string }
-	ready := make(chan startup, 1)
-	go func() {
-		var result startup
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.HasPrefix(line, "server listening on ") {
-				result.url = strings.TrimPrefix(line, "server listening on ")
-			}
-			if strings.HasPrefix(line, "server password ") {
-				result.password = strings.TrimPrefix(line, "server password ")
-			}
-			if result.url != "" && result.password != "" {
-				ready <- result
-				return
-			}
-		}
-		ready <- result
-	}()
-	var server startup
-	select {
-	case server = <-ready:
-	case <-ctx.Done():
-		t.Fatal("OpenCode startup timed out (startup output kept private)")
-	}
-	if server.url == "" || server.password == "" {
-		t.Fatal("OpenCode startup failed (startup output kept private)")
-	}
+	root := t.TempDir()
+	server := startPinnedRuntime(t, binary, root, config)
+	ctx := t.Context()
 	connection, err := New(Config{URL: server.url, ProviderID: "openrouter", ModelID: "unused"}, "", server.password)
 	if err != nil {
 		t.Fatal(err)
@@ -153,4 +98,67 @@ func TestPinnedRuntimeContract(t *testing.T) {
 	if modelCalls.Load() != 2 {
 		t.Fatal("tool response test did not reach the fake provider")
 	}
+}
+
+type startup struct{ url, password string }
+
+func startPinnedRuntime(t *testing.T, binary, root string, config map[string]any) startup {
+	t.Helper()
+	configDir := filepath.Join(root, "config", "opencode")
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(config)
+	if err := os.WriteFile(filepath.Join(configDir, "opencode.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	cmd := exec.CommandContext(ctx, binary, "serve", "--hostname", "127.0.0.1", "--port", "0")
+	cmd.Dir = root
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + root, "USERPROFILE=" + root, "XDG_CONFIG_HOME=" + filepath.Join(root, "config"), "XDG_DATA_HOME=" + filepath.Join(root, "data"), "XDG_CACHE_HOME=" + filepath.Join(root, "cache"), "XDG_STATE_HOME=" + filepath.Join(root, "state"), "TMPDIR=" + root}
+	for _, key := range []string{"SystemRoot", "SYSTEMROOT", "TEMP", "TMP"} {
+		if value := os.Getenv(key); value != "" {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		cancel()
+		t.Fatal("cannot start pinned OpenCode runtime")
+	}
+	t.Cleanup(func() { cancel(); cmd.Wait() })
+	ready := make(chan startup, 1)
+	go func() {
+		var result startup
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "server listening on ") {
+				result.url = strings.TrimPrefix(line, "server listening on ")
+			}
+			if strings.HasPrefix(line, "server password ") {
+				result.password = strings.TrimPrefix(line, "server password ")
+			}
+			if result.url != "" && result.password != "" {
+				ready <- result
+				return
+			}
+		}
+		ready <- result
+	}()
+	var server startup
+	select {
+	case server = <-ready:
+	case <-ctx.Done():
+		t.Fatal("OpenCode startup timed out (startup output kept private)")
+	}
+	if server.url == "" || server.password == "" {
+		t.Fatal("OpenCode startup failed (startup output kept private)")
+	}
+	return server
 }

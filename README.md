@@ -1,87 +1,79 @@
 # Minecraft Server Agent
 
-A Go Minecraft administration assistant being rebuilt from a personal PowerShell prototype. The goal is to let trusted players handle routine administration through chat, with bounded operations, verification and an audit trail.
+A Go chat bridge that lets trusted Minecraft OPs use a full OpenCode agent on the machine running their server.
 
-**Status: experimental.** Supports explicit commands and optional natural-language whitelist/status proposals through a pinned, tool-free OpenCode integration. Supervised restarts, automatic recovery and service installation remain planned. No live Minecraft server or paid model is required for development or CI.
+Ask it to whitelist friends, restart the server, investigate errors, install compatible mods, or perform other administration. OpenCode keeps its normal system and web tools; Minecraft Server Agent supplies OP authentication, persistent conversations, chat replies, request controls and dispatch auditing.
 
-## What works
+**Status: experimental.** The full-agent bridge is tested against OpenCode 2.0.32 using real tools and isolated fixtures. A real Minecraft/Windows pilot and service installation remain pending.
 
-- Reads new vanilla/Forge server-thread chat lines, starting at EOF. Trigger: `minecraft-server-agent` at the beginning of the message, case insensitive.
-- Checks `ops.json` for every request and immediately before execution. Fails closed on missing/malformed permissions and requires `online-mode=true`.
-- Supports `minecraft-server-agent status`, `minecraft-server-agent whitelist Friend_1`, and `minecraft-server-agent whitelist add Friend_1`.
-- With the optional OpenCode planner, understands requests such as `minecraft-server-agent, please whitelist Friend_1`. Go validates proposals and requires targets to be explicitly named.
-- Connect your chosen provider through OpenCode using an API key or its supported OAuth sign-in; see [provider setup](docs/opencode.md#provider-authentication) and the [OpenRouter example](docs/openrouter.md).
-- Executes validated operations through local RCON. Whitelist additions are verified using `whitelist list` before success is reported.
-- Replies privately to the requesting player with JSON-encoded `tellraw` messages.
-- Records jobs to a synced JSONL journal before execution. Previously started jobs are not automatically replayed after restart.
-- Guides first-run configuration with `setup` and reports actionable connection diagnostics with `doctor`.
-- Enforces durable per-player cooldowns, a bounded request queue and an hourly inference-attempt allowance, including previews and failed attempts.
-- Runs Go checks on Windows/Linux in GitHub Actions. Packages Windows/Linux amd64/arm64 binaries with checksums.
+## How it works
 
-## Build and configure
+1. Watches new vanilla/Forge server-thread chat messages beginning with `minecraft-server-agent`.
+2. Checks the player's OP entry and `online-mode=true` before queue admission and again before agent dispatch.
+3. Records the request and session ownership before forwarding it to that OP's OpenCode conversation in the Minecraft directory.
+4. OpenCode carries out the request with its normal tools, including shell, filesystem and web access.
+5. Returns the agent's text or questions privately through Minecraft RCON.
 
-Install the Go version declared in `go.mod` or later, then:
+For example:
+
+```text
+minecraft-server-agent please whitelist Friend_1
+minecraft-server-agent restart the server when everyone has logged off
+minecraft-server-agent find a compatible version of this mod and install it
+minecraft-server-agent /stop
+minecraft-server-agent /new
+```
+
+Each OP has a separate persistent session keyed by UUID. Follow-up messages and question answers return to the same session. `/stop` uses a separate control queue so it can interrupt busy work; `/new` starts a fresh conversation on the next request. See [agent behavior and configuration](docs/agent.md).
+
+## Build and setup
+
+Install the Go version in `go.mod`, then:
 
 ```sh
 go build -o bin/minecraft-server-agent ./cmd/minecraft-server-agent
+./bin/minecraft-server-agent setup
 ```
 
-On Windows use `-o bin/minecraft-server-agent.exe`. Run the setup wizard from the extracted release directory (or use `./bin/minecraft-server-agent` after building):
+On Windows build with `-o bin/minecraft-server-agent.exe` and use `.\bin\minecraft-server-agent.exe`. The wizard defaults to full-agent mode, guides provider/model authentication and creates `minecraft-server-agent.json` without overwriting an existing file. You can also copy `config.agent.example.json`.
+
+Start OpenCode 2.0.32 on the same machine with system/web permissions, using [the runtime setup](docs/opencode.md). Supply its startup password as `MSA_OPENCODE_PASSWORD` and Minecraft's RCON password as `MSA_RCON_PASSWORD`. Keys stay outside the application configuration; [API-key and OAuth setup](docs/opencode.md#provider-authentication) works with your chosen provider, including [OpenRouter](docs/openrouter.md).
 
 ```sh
-minecraft-server-agent setup
+./bin/minecraft-server-agent doctor
+./bin/minecraft-server-agent run
 ```
 
-It guides Minecraft/RCON paths, optional OpenCode provider/model authentication, request limits and connection checks. It creates `minecraft-server-agent.json` and refuses to overwrite an existing file. See [first-run setup](docs/setup.md). Alternatively, copy and edit either example configuration. Relative paths resolve against the configuration file's directory. Configure Minecraft RCON yourself, keep it firewalled from remote clients, and supply its password in the `MSA_RCON_PASSWORD` process environment variable. Never put it in the configuration file or repository.
+Normal setup/doctor make no model calls. `doctor -check-model` performs an optional read-only connectivity probe. Start the watcher before sending chat; it begins at EOF. Stop it with Ctrl+C. See [first-run setup](docs/setup.md).
 
-PowerShell:
+Record the server's startup/stop commands, Minecraft/mod-loader versions, backup locations and recovery procedure in its own `AGENTS.md`. OpenCode can use those workspace instructions instead of having to rediscover them for every administrator.
 
-```powershell
-# Supply MSA_RCON_PASSWORD through your process/service secret configuration.
-.\bin\minecraft-server-agent.exe doctor -config minecraft-server-agent.json
-.\bin\minecraft-server-agent.exe run -config minecraft-server-agent.json
-```
+## Trust and execution
 
-Linux:
+**OP means trusted machine administrator.** Full-agent sessions receive allow-all OpenCode tool permissions and execute under the OpenCode account's OS privileges. The Minecraft directory is a working directory, not a filesystem sandbox. The bridge does not impose a whitelist/status operation allowlist, inspect every shell command or provide transaction/rollback guarantees. Tool execution, verification and recovery are handled by OpenCode and the server's operating instructions. Tool results and workspace content may be sent to the selected inference provider.
 
-```sh
-# Supply MSA_RCON_PASSWORD through your process/service secret configuration.
-./bin/minecraft-server-agent doctor -config minecraft-server-agent.json
-./bin/minecraft-server-agent run -config minecraft-server-agent.json
-```
+OP checks control who can dispatch requests. They do not protect against a compromised account/mod, prompt injection or a mistaken agent action. The log adapter assumes server-owned logs and standard formatting; it is not a cryptographically authenticated player-event API. Offline-mode/proxy authentication and custom chat decorations are unsupported.
 
-`doctor` checks required files, online-mode/OP settings, RCON and the optional OpenCode runtime independently, reporting how to fix each failure. Use `doctor -check-model` for an optional budgeted inference check. It does not modify Minecraft configuration. Start the watcher before sending chat commands. Stop it with Ctrl+C.
+The bridge monitors authorization during active foreground requests and attempts interruption on revocation, cancellation or timeout. On watcher startup/shutdown it interrupts only sessions recorded as its own; requests are never replayed automatically. Interruption cannot undo completed changes or guarantee termination of detached processes. Inspect the OpenCode session and actual server state before retrying uncertain work.
 
-For a local diagnostic request without sending chat:
+Audit records identify requests, OP UUIDs, sessions and dispatch/outcome states. OpenCode owns the detailed tool transcript. Restrict both data directories with Unix permissions or Windows ACLs. After a crash, stop all bridge instances, inspect state, then remove stale journal/ledger `.lock` directories before restarting. Firewall RCON to local access; the client loopback setting does not bind Minecraft's listener.
 
-```sh
-./bin/minecraft-server-agent request -config minecraft-server-agent.json -player Admin -message "minecraft-server-agent status"
-```
+## Limits and optional modes
 
-This diagnostic command trusts the local caller's supplied name. It is for the machine owner and must not be exposed as an unauthenticated remote API.
+Defaults: 10-second UUID cooldown, eight waiting requests plus one active request, and 60 agent interactions per rolling hour. Question answers bypass the cooldown but still consume an interaction. The interaction ledger survives restarts. One interaction can involve many model calls; use OpenCode agent step/output settings and provider spending limits as well. See [limits and recovery](docs/request-limits.md).
 
-## Trust and recovery
+Existing `planner: "commands"` and `planner: "opencode"` profiles remain available for explicit commands and restricted proposals. Full agent execution uses `planner: "agent"`; existing profiles are not silently converted. `plan` always remains a tool-free, read-only diagnostic and never runs an agent.
 
-The log adapter assumes server-owned, trustworthy logs and standard formatting. Display-name parsing is not an authenticated player-event API. Offline-mode/proxy authentication, custom chat formats and mod-provided decorations are unsupported. A future server integration will provide authenticated UUID events. The watcher is not a security boundary against compromised mods or local accounts.
+The local `request -player Admin -message "..."` command trusts the machine owner's supplied identity, checks that name against OP permissions and executes through the selected mode. Do not expose it as a remote API.
 
-Minecraft Server Agent never executes shell commands from chat or grants planners arbitrary machine access. The optional OpenCode adapter uses the pinned stateless, tool-free generation API; proposals pass the same Go authorization and validation as explicit commands. The legacy unrestricted Build integration is not included. See [OpenCode setup](docs/opencode.md) for the version pin, configuration and `minecraft-server-agent plan` preview, which executes no Minecraft operations. Inference attempts are recorded locally to enforce the budget.
-
-Defaults are a 10-second per-player cooldown, eight waiting requests plus one active request, and 60 inference attempts per rolling hour. One player can have only one queued/active request. Queued time counts toward the request deadline; expired work is discarded before planning. Full-queue and duplicate-pending requests are logged and dropped without extra model calls or RCON replies. See [request limits](docs/request-limits.md) for configuration, persistence and recovery. Account-level token/spending limits remain the provider's responsibility.
-
-Audit files contain player names/UUIDs and operation metadata. Restrict the data directory with Windows ACLs or Unix permissions. One process may own a journal; a lock directory prevents duplicate ownership. After a crash, stop all instances, inspect journal/server state, and remove `<audit_file>.lock` before restarting. A `started` or `failed` job may already have changed the whitelist; inspect actual state before submitting another request. Corrupt journals fail closed and need manual recovery. This is not a transactional database or an exactly-once execution guarantee.
-
-The watcher handles observed file replacement/truncation and buffers partial lines. Truncate-and-regrow races between polls and arbitrary log rewrites are not reliably detectable. Operation failures appear in process logs. An operation's success and failed chat delivery are separate outcomes. Whitelist verification currently assumes the standard English RCON response.
-
-## Development and CI/CD
+## Development and distribution
 
 ```sh
 go run ./tools/check
-go run ./tools/release -version dev
 go run ./tools/contract
+go run ./tools/release -version dev
 ```
 
-The check command enforces formatting, runs `go vet`, tests with race detection and coverage, and builds all packages. Race tests require a C compiler, included on GitHub-hosted Windows/Linux runners. Tests use temporary server directories, simulated planners and fake RCON connections. CI also runs pinned `govulncheck`, a real OpenCode contract test with a local fake model, and packaging. The contract helper installs a checksum-pinned runtime on Linux amd64; other hosts can run the opt-in test with an installed executable. Coverage files are uploaded as artifacts.
+Shared checks enforce formatting, vet, race tests and builds. Both GitHub Actions and GitLab CI run vulnerability scans, real pinned-runtime contracts against fake providers, and four-target Windows/Linux packaging. The agent contract executes shell/web tools against temporary fixtures, bridges native questions and verifies interruption. No live Minecraft server or paid inference is used.
 
-Tags such as `v0.1.0` rerun Windows/Linux checks, scan for known Go vulnerabilities, package binaries and create a **draft** GitHub release. They do not deploy to Minecraft. No release has been published yet.
-
-GitHub Actions and GitLab CI use the same Go check/packaging commands. GitHub is the primary repository and runs native Windows/Linux tests; GitLab runs Linux verification and produces four-target package artifacts. Use `go run ./tools/sync` to explicitly push a feature branch to both providers. See [CI/CD and synchronization](docs/ci-cd.md), [the roadmap](docs/roadmap.md) and [architecture](docs/architecture.md).
+GitHub is [public and primary](https://github.com/StvnWthrsp/minecraft-server-agent); [GitLab](https://gitlab.com/stvnwthrsp/minecraft-server-agent) is the private CI copy. Use `go run ./tools/sync` for explicit feature-branch synchronization. Version tags create draft releases; no release is published or server deployed automatically. See [CI/CD](docs/ci-cd.md), [architecture](docs/architecture.md) and [roadmap](docs/roadmap.md).

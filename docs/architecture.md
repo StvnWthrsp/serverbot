@@ -2,29 +2,33 @@
 
 ```mermaid
 flowchart LR
-    Chat[Server-owned chat log] --> Parse[Strict log parser]
-    Parse --> Queue[Fresh OP admission and bounded queue]
-    Queue --> Auth[Fresh OP authorization and durable cooldown]
-    Auth --> Budget[Durable inference reservation when using OpenCode]
-    Budget --> Plan[Planner interface]
-    Plan --> Policy[Validate operation and recheck OP]
-    Policy --> Audit[Durable started record]
-    Audit --> RCON[Bounded RCON operation]
-    RCON --> Verify[Verify result]
-    Verify --> Outcome[Durable outcome record]
-    Outcome --> Reply[Private chat reply]
+    Chat[Server-owned chat log] --> Parse[Chat parser]
+    Parse --> Queue[OP admission and bounded queue]
+    Queue --> Auth[Fresh OP check and cooldown]
+    Auth --> Audit[Durable request and session ownership]
+    Audit --> Agent[Persistent OpenCode agent session]
+    Agent --> Tools[Normal system and web tools]
+    Tools --> Agent
+    Agent --> Reply[Private RCON text or question]
+    Reply --> Chat
+    Parse --> Stop[Authenticated stop control queue]
+    Stop --> Interrupt[Interrupt owned session]
 ```
 
-- `internal/minecraft`: parsing/tailing and fail-closed OP checks. Standard online-mode server logs are a trusted input, not cryptographic identity evidence.
-- `internal/bot`: bounded queue, durable cooldown/inference limits, planner interface, policy, serialized execution, verification and journal. Validates proposals independently and binds whitelist targets to the player's request. The built-in planner recognizes two explicit operations. A separate inference ledger counts all planning attempts across chat and local diagnostics.
-- `internal/opencode`: optional tool-free stateless JSON proposal adapter, pinned to OpenCode 2.0.32. No chat logs/server configuration or credentials are sent to the model. Tests exercise malicious output, HTTP failure/cancellation and OP revocation through the full engine.
-- `internal/rcon`: length-bounded protocol client with authentication, deadlines, cancellation and multipart/empty responses.
-- `internal/config`: strict JSON configuration; requires loopback RCON and keeps credentials outside files.
-- `cmd/minecraft-server-agent`: guided setup, independent diagnostics, CLI, cancellation and private chat delivery.
-- `tools/check`, `tools/release`: portable CI entry points.
+- `internal/minecraft`: log parsing/tailing and OP checks. Standard online-mode logs are trusted input, not cryptographic identity evidence.
+- `internal/bot`: bounded queues, durable cooldown/request budgets, full-agent dispatch/session ownership/recovery, and journals. Optional command/planner modes retain independent Go policy and RCON verification.
+- `internal/opencode`: pinned OpenCode client. Full agent sessions select a provider/model and Build/custom agent at the Minecraft working directory with allow-all tools. Polling returns text/questions; answers and interruption use native APIs. The separate stateless adapter supports read-only diagnostics.
+- `internal/rcon`: private chat delivery and optional explicit command execution.
+- `internal/config`: strict JSON with loopback destinations, mode/provider selection, timeout and limits.
+- `cmd/minecraft-server-agent`: setup, diagnostics, lifecycle and reply formatting.
+- `tools/check`, `tools/contract`, `tools/release`: shared GitHub/GitLab validation and distribution.
 
-There is no general-purpose shell or file-write tool exposed to a planner. The OpenCode adapter uses a reviewed stateless model call instead of a remote agent session; its HTTP client cannot redirect or use environment proxies. Both CI providers verify the pinned real runtime sends no tools to a local fake model. Prompt instructions alone are insufficient, so Go still enforces authorization, plan validation and verification.
+Agent mode authorizes dispatch, not individual tool actions. OpenCode owns its tool inventory, agent loop, model retries, tool outputs and detailed transcript; the bridge does not impose an operation allowlist. Workspace content and tool output can reach the inference provider. The OS account determines actual privileges.
 
-RCON and audit writes do not form a transaction. Failed execution/verification can leave uncertain state. Started jobs are not retried automatically. Recovery and supervision are required before adding disruptive operations.
+Each OP UUID owns a separate persistent session. Session IDs are durably recorded before prompting, and accepted IDs are never automatically replayed. Native questions release the request worker so another OP can run work; answer ownership is enforced by session routing. Stop controls bypass the occupied request queue. Authorization changes during foreground work trigger interruption attempts.
 
-GitHub Actions tests Windows/Linux natively; GitLab CI runs the shared checks in a Linux container. Both package Windows/Linux amd64/arm64; arm64 runtime tests are not yet implemented. GitHub is the primary repository, with explicit feature-branch pushes to GitLab using `tools/sync`. Automated live deployment remains a later milestone.
+Agent interaction and read-only inference ledgers are separate. A full interaction can contain multiple provider/tool calls. Restarting the bridge does not reset recorded request allowances or session ownership.
+
+Auditing and tools do not form a transaction. Interruption does not undo changes or necessarily stop detached processes. Startup/shutdown interrupts only sessions recorded by this bridge; crashes require inspection and normal server recovery. There is no Go-native restart supervisor or mod installer; these workflows are delegated to the full agent.
+
+GitHub Actions tests Windows/Linux; GitLab runs shared checks on Linux. Both execute real-runtime/fake-provider contracts and package Windows/Linux amd64/arm64. No automated live deployment or paid inference is used in CI.

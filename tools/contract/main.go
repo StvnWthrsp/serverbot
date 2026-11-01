@@ -103,7 +103,7 @@ func run() error {
 	if !found {
 		return fmt.Errorf("OpenCode binary missing from verified archive")
 	}
-	cmd := exec.Command("go", "test", "-race", "-count=1", "-timeout", "75s", "-run", "^TestPinnedRuntimeContract$", "-v", "./internal/opencode")
+	cmd := exec.Command("go", "test", "-race", "-count=1", "-timeout", "120s", "-run", "^TestPinnedRuntime.*Contract$", "-v", "./internal/opencode")
 	cmd.Env = append(os.Environ(), "MSA_TEST_OPENCODE="+binary)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	return cmd.Run()

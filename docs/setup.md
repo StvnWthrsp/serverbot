@@ -8,7 +8,9 @@ The executable is `minecraft-server-agent` (`minecraft-server-agent.exe` on Wind
 
 Press Enter to accept each displayed default. Setup asks for the Minecraft directory, loopback RCON address, planner, optional OpenCode URL/provider/model, and [request limits](request-limits.md). Relative Minecraft paths entered in setup refer to your current directory; the wizard saves an absolute path. Audit/ledger paths are relative to the resulting configuration file.
 
-The default `commands` planner needs no inference provider and accepts chat commands such as `minecraft-server-agent status` and `minecraft-server-agent whitelist Friend_1`. Choose `opencode` for natural-language requests. See [OpenCode](opencode.md) and [OpenRouter](openrouter.md) for dedicated runtime setup and model configuration.
+The default `agent` mode forwards OP requests to OpenCode's full system/web tool loop. It uses a 900-second request deadline and a persistent conversation per OP UUID. The wizard explains that OPs must be trusted with the runtime account's machine access. See [agent behavior](agent.md), [OpenCode](opencode.md) and [OpenRouter](openrouter.md).
+
+Optional `commands` mode needs no inference provider and accepts explicit whitelist/status commands. The optional `opencode` mode uses a restricted proposal planner; it is not the full agent workflow. Existing configurations retain their selected mode until edited.
 
 Setup never asks you to type a password or API key. Supply `MSA_RCON_PASSWORD` through your process/service environment. For OpenCode, also supply its local startup password as `MSA_OPENCODE_PASSWORD`. If importing a provider API key, enter only the name of the environment variable containing it, such as `OPENROUTER_API_KEY`; OpenCode saves the credential. Leave that answer blank to reuse an existing connection, including OAuth. For OAuth, use `opencode auth login --standalone` under the same dedicated account and configuration/data directories, then restart the headless runtime.
 
@@ -28,13 +30,15 @@ This checks files/authentication settings, RCON and the pinned OpenCode version 
 ./minecraft-server-agent doctor -check-model
 ```
 
-This expects a status proposal and executes no administration. Then start the watcher:
+This always uses the separate stateless diagnostic endpoint, expects a status proposal and executes no administration. It does not demonstrate the agent's tools. Then start the watcher:
 
 ```sh
 ./minecraft-server-agent run
 ```
 
 Run it before sending chat requests; it starts at the current end of the log. Automatic service installation remains planned.
+
+For agent mode, put server operating context (startup/stop commands, loader versions, backups and recovery) in the Minecraft directory's `AGENTS.md`. Native questions and follow-ups use the same conversation; use `minecraft-server-agent /stop` to interrupt and `/new` to reset it.
 
 ## Naming changes
 

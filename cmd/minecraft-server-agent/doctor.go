@@ -45,7 +45,7 @@ func doctor(ctx context.Context, c config.Config, out io.Writer, checkModel bool
 		_, err := (rcon.Client{Address: c.RCONAddress, Password: password}).Command(ctx, "list")
 		return err
 	})
-	if c.Planner == "opencode" {
+	if c.Planner == "opencode" || c.Planner == "agent" {
 		check("OpenCode runtime", "Start the pinned runtime at opencode.url and set MSA_OPENCODE_PASSWORD to its startup password.", func(ctx context.Context) error {
 			model, err := opencode.New(*c.OpenCode, os.Getenv("MSA_OPENCODE_USERNAME"), os.Getenv("MSA_OPENCODE_PASSWORD"))
 			if err != nil {
@@ -76,6 +76,9 @@ func doctor(ctx context.Context, c config.Config, out io.Writer, checkModel bool
 		}
 	}
 	fmt.Fprintf(out, "Limits: %ds player cooldown, %d waiting requests, %d inference attempts per rolling hour.\n", c.Limits.PlayerCooldownSeconds, c.Limits.QueueCapacity, c.Limits.InferenceCallsPerHour)
+	if c.Planner == "agent" {
+		fmt.Fprintf(out, "Agent mode: full OpenCode tools; %d agent interactions per rolling hour, each potentially making multiple model calls.\n", c.Limits.AgentRunsPerHour)
+	}
 	if failed {
 		return errors.New("diagnostics failed; follow the instructions above and rerun doctor")
 	}

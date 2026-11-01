@@ -71,9 +71,13 @@ func setup(ctx context.Context, input io.Reader, out io.Writer, path string) err
 	c.ServerDir = q.ask("Minecraft server directory (relative to your current directory)", ".")
 	c.RCONAddress = q.ask("RCON address (loopback only)", "127.0.0.1:25575")
 	c.AuditFile = "data/audit.jsonl"
-	c.Planner = strings.ToLower(q.ask("Planner: commands or opencode", "commands"))
+	c.Planner = strings.ToLower(q.ask("Mode: agent (full OpenCode tools), commands, or opencode (read-only planner)", "agent"))
 	keyEnv := ""
-	if c.Planner == "opencode" {
+	if c.Planner == "opencode" || c.Planner == "agent" {
+		if c.Planner == "agent" {
+			c.RequestTimeoutSeconds = 900
+			fmt.Fprintln(out, "Agent mode gives every OP the OpenCode account's system and web tools. Only grant OP to trusted machine administrators.")
+		}
 		fmt.Fprintf(out, "Install OpenCode %s and start it with: opencode serve --hostname 127.0.0.1 --port 4096\nUse a dedicated account/configuration. See docs/opencode.md for details.\n", opencode.Version)
 		c.OpenCode = &opencode.Config{}
 		c.OpenCode.URL = q.ask("OpenCode server URL", "http://127.0.0.1:4096")
@@ -82,10 +86,14 @@ func setup(ctx context.Context, input io.Reader, out io.Writer, path string) err
 		keyEnv = q.ask("API-key environment variable (blank reuses an existing or OAuth connection)", "")
 		fmt.Fprintln(out, "For OAuth, use opencode auth login --standalone under the same dedicated account/directories, then restart OpenCode. Set MSA_OPENCODE_PASSWORD to the local server password.")
 	}
-	c.Limits = &config.Limits{}
+	c.Limits = &config.Limits{InferenceCallsPerHour: 60, AgentRunsPerHour: 60}
 	c.Limits.PlayerCooldownSeconds = q.number("Per-player cooldown in seconds", 10)
 	c.Limits.QueueCapacity = q.number("Maximum waiting requests", 8)
-	c.Limits.InferenceCallsPerHour = q.number("Maximum inference attempts per rolling hour", 60)
+	if c.Planner == "agent" {
+		c.Limits.AgentRunsPerHour = q.number("Maximum agent interactions per rolling hour (each can make multiple model calls)", 60)
+	} else {
+		c.Limits.InferenceCallsPerHour = q.number("Maximum read-only inference attempts per rolling hour", 60)
+	}
 	checks := strings.ToLower(q.ask("Check server files and connections after saving? yes or no", "yes"))
 	if q.err != nil {
 		return q.err
@@ -117,7 +125,7 @@ func setup(ctx context.Context, input io.Reader, out io.Writer, path string) err
 		}
 	}
 	fmt.Fprintf(out, "Next: minecraft-server-agent doctor -config %s\nThen: minecraft-server-agent run -config %s\n", path, path)
-	if c.Planner == "opencode" {
+	if c.Planner == "opencode" || c.Planner == "agent" {
 		fmt.Fprintln(out, "Optional: doctor -check-model verifies inference with one budgeted provider call.")
 	}
 	return nil

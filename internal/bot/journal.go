@@ -8,15 +8,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 type FileJournal struct {
-	file  *os.File
-	seen  map[string]bool
-	lock  string
-	last  map[string]time.Time
-	calls []time.Time
+	mu       sync.Mutex
+	file     *os.File
+	seen     map[string]bool
+	lock     string
+	last     map[string]time.Time
+	calls    []time.Time
+	sessions map[string]string
+	states   map[string]string
 }
 
 // One process owns a journal. Started jobs are never automatically replayed.
@@ -33,7 +37,7 @@ func OpenJournal(path string) (*FileJournal, error) {
 		os.Remove(lock)
 		return nil, err
 	}
-	j := &FileJournal{file: f, seen: make(map[string]bool), last: make(map[string]time.Time), lock: lock}
+	j := &FileJournal{file: f, seen: make(map[string]bool), last: make(map[string]time.Time), sessions: make(map[string]string), states: make(map[string]string), lock: lock}
 	info, err := f.Stat()
 	if err != nil {
 		j.Close()
@@ -70,10 +74,40 @@ func OpenJournal(path string) (*FileJournal, error) {
 	}
 	return j, nil
 }
-func (j *FileJournal) Seen(id string) bool               { return j.seen[id] }
-func (j *FileJournal) LastRequest(uuid string) time.Time { return j.last[strings.ToLower(uuid)] }
+func (j *FileJournal) Seen(id string) bool { j.mu.Lock(); defer j.mu.Unlock(); return j.seen[id] }
+func (j *FileJournal) LastRequest(uuid string) time.Time {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.last[strings.ToLower(uuid)]
+}
+func (j *FileJournal) Session(uuid string) string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.sessions[strings.ToLower(uuid)]
+}
+func (j *FileJournal) SessionState(uuid string) string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.states[strings.ToLower(uuid)]
+}
+func (j *FileJournal) Sessions() map[string]string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	result := make(map[string]string, len(j.sessions))
+	for uuid, id := range j.sessions {
+		result[uuid] = id
+	}
+	return result
+}
 
 func (j *FileJournal) remember(r Record) {
+	if r.SessionID != "" {
+		j.sessions[strings.ToLower(r.UUID)] = r.SessionID
+		j.states[strings.ToLower(r.UUID)] = r.State
+	}
+	if r.State == "agent_reset" {
+		delete(j.sessions, strings.ToLower(r.UUID))
+	}
 	if r.State == "accepted" || r.State == "started" {
 		key := strings.ToLower(r.UUID)
 		if r.Time.After(j.last[key]) {
@@ -86,6 +120,8 @@ func (j *FileJournal) remember(r Record) {
 }
 
 func (j *FileJournal) Append(r Record) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	b, err := json.Marshal(r)
 	if err != nil {
 		return err

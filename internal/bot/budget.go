@@ -18,28 +18,35 @@ type BudgetPlanner struct {
 }
 
 func (p BudgetPlanner) Plan(ctx context.Context, text string) (Plan, error) {
-	if err := ctx.Err(); err != nil {
+	if err := ReserveAttempt(ctx, p.Path, p.MaxCallsPerHour); err != nil {
 		return Plan{}, err
 	}
-	if p.MaxCallsPerHour < 1 {
-		return Plan{}, errors.New("inference limit must be positive")
+	return p.Planner.Plan(ctx, text)
+}
+
+func ReserveAttempt(ctx context.Context, path string, maxPerHour int) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	j, err := OpenJournal(p.Path)
+	if maxPerHour < 1 {
+		return errors.New("request limit must be positive")
+	}
+	j, err := OpenJournal(path)
 	if err != nil {
-		return Plan{}, errors.New("cannot open inference ledger; check its permissions and lock")
+		return errors.New("cannot open request ledger; check its permissions and lock")
 	}
 	now := time.Now().UTC()
-	if len(j.calls) >= p.MaxCallsPerHour {
+	if len(j.calls) >= maxPerHour {
 		j.Close()
-		return Plan{}, ErrInferenceLimit
+		return ErrInferenceLimit
 	}
 	err = j.Append(Record{Time: now, ID: rand.Text(), State: "inference_started"})
 	closeErr := j.Close()
 	if err != nil || closeErr != nil {
-		return Plan{}, errors.New("cannot reserve inference attempt; no model call made")
+		return errors.New("cannot reserve request; no agent/model call made")
 	}
 	if err := ctx.Err(); err != nil {
-		return Plan{}, err
+		return err
 	}
-	return p.Planner.Plan(ctx, text)
+	return nil
 }
