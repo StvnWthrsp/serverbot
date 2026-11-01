@@ -21,6 +21,8 @@ import (
 const Version = "2.0.32"
 const maxResponse = 64 * 1024
 
+var ErrRefused = errors.New("request refused: ask for server status or whitelist one named player")
+
 type Config struct {
 	URL        string `json:"url"`
 	ProviderID string `json:"provider_id"`
@@ -217,7 +219,7 @@ func parsePlan(text string) (bot.Plan, error) {
 	}
 	plan := bot.Plan{Action: fields["action"], Target: fields["target"]}
 	if plan.Action == "refuse" && plan.Target == "" {
-		return bot.Plan{}, errors.New("request refused: ask for server status or whitelist one named player")
+		return bot.Plan{}, ErrRefused
 	}
 	if bot.ValidatePlan(plan) != nil {
 		return bot.Plan{}, bad

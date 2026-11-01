@@ -1,6 +1,6 @@
 # OpenCode planner
 
-ServerBot supports OpenCode **2.0.32** as an optional natural-language planner. The default remains explicit commands. It calls the pinned runtime's stateless `POST /api/experimental/generate` endpoint, never an agent session, Build agent, command runner or shell API.
+ServerBot supports OpenCode **2.0.32** as an optional natural-language planner. The default remains explicit commands. It calls the pinned runtime's stateless `POST /api/experimental/generate` endpoint, never an agent session, Build agent, command runner or shell API. The evaluated inference provider is now OpenRouter; see [OCI-backed setup and results](openrouter.md). OpenCode remains the runtime.
 
 The reviewed implementation calls the model without tools and returns text. Go strictly decodes a proposal and independently enforces authorization, operation/argument validation, target binding, audit and RCON verification. A model cannot introduce another administrative operation. Whitelist targets must appear explicitly in the player's request.
 
@@ -37,7 +37,7 @@ The model returns exactly `action` and `target`, both strings. Status uses `{"ac
 
 Each request has one generation attempt and a total deadline. Transport/provider failures, authentication errors and incompatible versions fail closed with no unrestricted fallback. Responses are capped at 64 KiB, proposals at 1 KiB and player text at 512 bytes. Only player text is sent: no Minecraft logs, paths, OP lists, RCON passwords or other server data.
 
-Timeout/cancellation stops the local request and prevents late execution. It cannot guarantee that a remote provider stops computation/billing. The endpoint has no per-call token/cost parameter; configure provider-side limits and budgets. Global rate/cost budgeting remains roadmap work. Constrained tools do not guarantee correct understanding of player intent; a real-provider quality evaluation and Windows pilot remain separate validation steps.
+Timeout/cancellation stops the local request and prevents late execution. It cannot guarantee that a remote provider stops computation/billing. The endpoint has no per-call token/cost parameter; the OpenRouter example applies an output-token cap through OpenCode provider configuration. Configure provider-side budgets as well. Global rate/cost budgeting remains roadmap work. Constrained tools do not guarantee correct understanding of player intent; the recorded synthetic live-provider evaluation does not replace a Windows pilot.
 
 ## Contract testing
 

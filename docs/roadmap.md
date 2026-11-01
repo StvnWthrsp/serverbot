@@ -14,6 +14,7 @@
 - [x] Pin and test OpenCode 2.0.32's headless stateless API.
 - [x] Tool-free OpenCode planner producing validated JSON proposals.
 - [x] Model/API deadlines, cancellation, failure/refusal handling and bounded responses.
+- [x] OpenRouter provider through OpenCode, OCI instance-principal secret loading and an 18-case live-provider evaluation.
 - [ ] Global rate/token/cost budgets (provider-side limits required meanwhile).
 - [ ] Authenticated UUID events and roles beyond OP.
 - [ ] Durable job queue and reconciliation of interrupted jobs.
