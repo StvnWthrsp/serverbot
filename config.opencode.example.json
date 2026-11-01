@@ -1,0 +1,13 @@
+{
+  "server_dir": "C:\\Minecraft\\server",
+  "rcon_address": "127.0.0.1:25575",
+  "audit_file": "data/audit.jsonl",
+  "poll_interval_ms": 1000,
+  "request_timeout_seconds": 45,
+  "planner": "opencode",
+  "opencode": {
+    "url": "http://127.0.0.1:4096",
+    "provider_id": "your-configured-provider",
+    "model_id": "your-configured-model"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permissions": [
+    {"action": "*", "resource": "*", "effect": "deny"}
+  ],
+  "providers": {
+    "openrouter": {
+      "body": {
+        "max_tokens": 256,
+        "temperature": 0,
+        "provider": {"require_parameters": true},
+        "response_format": {
+          "type": "json_schema",
+          "json_schema": {
+            "name": "serverbot_proposal",
+            "strict": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "action": {"type": "string", "enum": ["whitelist_add", "status", "refuse"]},
+                "target": {"type": "string"}
+              },
+              "required": ["action", "target"],
+              "additionalProperties": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

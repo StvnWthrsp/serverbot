@@ -11,9 +11,11 @@
 
 ## Agent and reliability
 
-- [ ] Pin and test a supported headless OpenCode API version.
-- [ ] Read-only/no-tools OpenCode planner producing structured proposals.
-- [ ] Model/API timeouts, cancellation, cost budgets and denial handling.
+- [x] Pin and test OpenCode 2.0.32's headless stateless API.
+- [x] Tool-free OpenCode planner producing validated JSON proposals.
+- [x] Model/API deadlines, cancellation, failure/refusal handling and bounded responses.
+- [x] Provider API-key setup through ServerBot and an OpenRouter configuration example.
+- [ ] Global rate/token/cost budgets (provider-side limits required meanwhile).
 - [ ] Authenticated UUID events and roles beyond OP.
 - [ ] Durable job queue and reconciliation of interrupted jobs.
 - [ ] Supervised restart: save/stop, wait, start, readiness and recovery.
@@ -23,7 +25,7 @@
 
 ## Distribution and portfolio
 
-- [ ] Review the feature PR and make the repository public when ready.
+- [x] Make GitHub public at the owner's request.
 - [x] GitLab repository/CI, reusing the Go tools.
 - [x] GitHub primary, explicit one-way synchronization to GitLab without pipeline loops.
 - [ ] Isolated Windows self-managed runner if needed.

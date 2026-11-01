@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 type Plan struct {
 	Action string `json:"action"`
-	Target string `json:"target,omitempty"`
+	Target string `json:"target"`
 }
 type Planner interface {
 	Plan(context.Context, string) (Plan, error)
@@ -61,13 +62,13 @@ func (e *Engine) Handle(ctx context.Context, req minecraft.Request) (string, err
 	if err != nil {
 		return "", err
 	}
-	if plan.Action != "status" && plan.Action != "whitelist_add" {
-		return "", errors.New("operation is not allowed")
+	if err := ValidatePlan(plan); err != nil {
+		return "", err
 	}
-	if (plan.Action == "whitelist_add" && !minecraft.ValidUsername(plan.Target)) || (plan.Action == "status" && plan.Target != "") {
-		return "", errors.New("invalid operation arguments")
+	if plan.Action == "whitelist_add" && !regexp.MustCompile(`(?i)(^|[^A-Za-z0-9_])`+regexp.QuoteMeta(plan.Target)+`($|[^A-Za-z0-9_])`).MatchString(req.Text) {
+		return "", errors.New("whitelist target must be explicitly named in the request")
 	}
-	// Recheck after planning: a future model adapter may take time or observe a revocation.
+	// Recheck after planning: model calls may take time or observe a revocation.
 	currentUUID, err := e.Auth.Authorize(req.Player)
 	if err != nil || currentUUID != uuid {
 		return "", errors.New("authorization changed during planning")
@@ -89,6 +90,16 @@ func (e *Engine) Handle(ctx context.Context, req minecraft.Request) (string, err
 		return "", errors.New("cannot record job outcome; inspect server state before retrying")
 	}
 	return result, opErr
+}
+
+func ValidatePlan(plan Plan) error {
+	if plan.Action != "status" && plan.Action != "whitelist_add" {
+		return errors.New("operation is not allowed")
+	}
+	if (plan.Action == "whitelist_add" && !minecraft.ValidUsername(plan.Target)) || (plan.Action == "status" && plan.Target != "") {
+		return errors.New("invalid operation arguments")
+	}
+	return nil
 }
 
 func (e *Engine) execute(ctx context.Context, p Plan) (string, error) {

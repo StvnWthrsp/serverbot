@@ -2,7 +2,7 @@
 
 GitHub is the primary repository: https://github.com/StvnWthrsp/serverbot.
 GitLab holds a secondary copy for pipeline execution: https://gitlab.com/stvnwthrsp/serverbot.
-Both are initially private. Contributions and merges happen on GitHub; do not independently merge changes in GitLab.
+GitHub is public; the GitLab copy is private. Contributions and merges happen on GitHub; do not independently merge changes in GitLab.
 
 ## Pipeline responsibilities
 
@@ -10,11 +10,12 @@ Both are initially private. Contributions and merges happen on GitHub; do not in
 | --- | --- | --- |
 | Formatting, vet, race tests, build | Native Windows and Linux | Linux container |
 | Known Go vulnerabilities | Pinned govulncheck | Same pinned govulncheck |
+| OpenCode API/no-tools contract | Pinned runtime, local fake model | Same contract helper |
 | Windows/Linux amd64/arm64 packaging | Packaging smoke test | Downloadable job artifacts |
 | Coverage | Job artifacts | Job artifacts |
 | Version tags | Checks and draft GitHub release | Checks and versioned package artifacts |
 
-GitLab uses `.gitlab-ci.yml`: verification jobs run in parallel, then packaging depends on both succeeding. Its Go module/build caches are keyed by `go.mod`. Artifacts expire after 14 days. Pipeline rules switch from branch to merge-request pipelines when a GitLab MR is open, avoiding duplicate pipelines. Updated branches cancel superseded interruptible jobs. Both providers call the same Go tools.
+GitLab uses `.gitlab-ci.yml`: verification runs in parallel, then packaging depends on checks, vulnerability scanning and the OpenCode contract succeeding. Go module/build caches are keyed by `go.mod`; artifacts expire after 14 days. Rules switch from branch to merge-request pipelines when a GitLab MR is open, avoiding duplicates. New commits cancel superseded interruptible jobs. Both providers call the same Go tools.
 
 GitLab's initial pipeline uses a versioned official Go Linux image and hosted Linux runners. It does not perform native Windows tests; those remain in GitHub Actions. Cross-compilation is not a substitute for native runtime tests.
 

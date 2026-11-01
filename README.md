@@ -2,13 +2,15 @@
 
 A Go Minecraft administration assistant being rebuilt from a personal PowerShell prototype. The goal is to let trusted players handle routine administration through chat, with bounded operations, verification and an audit trail.
 
-**Status: experimental foundation.** Currently implements explicit whitelist and status commands. Natural-language/OpenCode planning, supervised restarts, automatic recovery and service installation are planned. No live Minecraft server is required for development or CI.
+**Status: experimental.** Supports explicit commands and optional natural-language whitelist/status proposals through a pinned, tool-free OpenCode integration. Supervised restarts, automatic recovery and service installation remain planned. No live Minecraft server or paid model is required for development or CI.
 
 ## What works
 
 - Reads new vanilla/Forge server-thread chat lines, starting at EOF. Trigger: `serverbot` at the beginning of the message, case insensitive.
 - Checks `ops.json` for every request and immediately before execution. Fails closed on missing/malformed permissions and requires `online-mode=true`.
 - Supports `serverbot status`, `serverbot whitelist Friend_1`, and `serverbot whitelist add Friend_1`.
+- With the optional OpenCode planner, understands requests such as `serverbot, please whitelist Friend_1`. Go validates proposals and requires targets to be explicitly named.
+- Connect your chosen provider through OpenCode using an API key or its supported OAuth sign-in; see [provider setup](docs/opencode.md#provider-authentication) and the [OpenRouter example](docs/openrouter.md).
 - Executes validated operations through local RCON. Whitelist additions are verified using `whitelist list` before success is reported.
 - Replies privately to the requesting player with JSON-encoded `tellraw` messages.
 - Records jobs to a synced JSONL journal before execution. Previously started jobs are not automatically replayed after restart.
@@ -54,7 +56,7 @@ This diagnostic command trusts the local caller's supplied name. It is for the m
 
 The log adapter assumes server-owned, trustworthy logs and standard formatting. Display-name parsing is not an authenticated player-event API. Offline-mode/proxy authentication, custom chat formats and mod-provided decorations are unsupported. A future server integration will provide authenticated UUID events. The watcher is not a security boundary against compromised mods or local accounts.
 
-ServerBot never executes shell commands from chat or grants planners arbitrary machine access. A future model adapter must return a proposal that passes the same authorization and operation validation as the explicit-command planner. The legacy OpenCode Build integration is not included.
+ServerBot never executes shell commands from chat or grants planners arbitrary machine access. The optional OpenCode adapter uses the pinned stateless, tool-free generation API; proposals pass the same Go authorization and validation as explicit commands. The legacy unrestricted Build integration is not included. See [OpenCode setup](docs/opencode.md) for the version pin, configuration, limits and read-only `serverbot plan` preview.
 
 Audit files contain player names/UUIDs and operation metadata. Restrict the data directory with Windows ACLs or Unix permissions. One process may own a journal; a lock directory prevents duplicate ownership. After a crash, stop all instances, inspect journal/server state, and remove `<audit_file>.lock` before restarting. A `started` or `failed` job may already have changed the whitelist; inspect actual state before submitting another request. Corrupt journals fail closed and need manual recovery. This is not a transactional database or an exactly-once execution guarantee.
 
@@ -65,9 +67,10 @@ The watcher handles observed file replacement/truncation and buffers partial lin
 ```sh
 go run ./tools/check
 go run ./tools/release -version dev
+go run ./tools/contract
 ```
 
-The check command enforces formatting, runs `go vet`, tests with race detection and coverage, and builds all packages. Race tests require a C compiler, included on GitHub-hosted Windows/Linux runners. Tests use temporary server directories, simulated planners and local fake RCON connections. CI also runs pinned `govulncheck` and tests release packaging. Coverage files are uploaded as artifacts.
+The check command enforces formatting, runs `go vet`, tests with race detection and coverage, and builds all packages. Race tests require a C compiler, included on GitHub-hosted Windows/Linux runners. Tests use temporary server directories, simulated planners and fake RCON connections. CI also runs pinned `govulncheck`, a real OpenCode contract test with a local fake model, and packaging. The contract helper installs a checksum-pinned runtime on Linux amd64; other hosts can run the opt-in test with an installed executable. Coverage files are uploaded as artifacts.
 
 Tags such as `v0.1.0` rerun Windows/Linux checks, scan for known Go vulnerabilities, package binaries and create a **draft** GitHub release. They do not deploy to Minecraft. No release has been published yet.
 

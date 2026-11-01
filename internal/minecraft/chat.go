@@ -9,7 +9,7 @@ import (
 
 // Only the server-thread chat envelope is accepted. Log files remain a trusted local input.
 var chat = regexp.MustCompile(`^\[[^\]\r\n]+\] \[Server thread/INFO\](?: \[[^\]\r\n]+\])?: <([A-Za-z0-9_]{3,16})> ([^\r\n]*)$`)
-var trigger = regexp.MustCompile(`(?i)^serverbot(?:\s|$)`)
+var trigger = regexp.MustCompile(`(?i)^serverbot(?:[\s,:]|$)`)
 
 type Request struct{ ID, Player, Text string }
 

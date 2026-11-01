@@ -53,7 +53,7 @@ func run() error {
 		}
 		archiveName := fmt.Sprintf("serverbot_%s_%s_%s.zip", *version, target.os, target.arch)
 		archive := filepath.Join(*output, archiveName)
-		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json"})
+		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json", "config.opencode.example.json": "config.opencode.example.json", "docs/opencode.md": "docs/opencode.md", "docs/openrouter.md": "docs/openrouter.md", "examples/opencode/opencode.json": "examples/opencode/opencode.json", "examples/opencode/openrouter.json": "examples/opencode/openrouter.json"})
 		os.RemoveAll(tmp)
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ func pack(path string, files map[string]string) error {
 		return err
 	}
 	z := zip.NewWriter(f)
-	names := []string{"serverbot", "serverbot.exe", "README.md", "LICENSE", "config.example.json"}
+	names := []string{"serverbot", "serverbot.exe", "README.md", "LICENSE", "config.example.json", "config.opencode.example.json", "docs/opencode.md", "docs/openrouter.md", "examples/opencode/opencode.json", "examples/opencode/openrouter.json"}
 	for _, name := range names {
 		source, ok := files[name]
 		if !ok {
