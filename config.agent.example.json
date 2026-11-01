@@ -1,0 +1,20 @@
+{
+  "server_dir": "C:\\Minecraft\\server",
+  "rcon_address": "127.0.0.1:25575",
+  "audit_file": "data/audit.jsonl",
+  "poll_interval_ms": 1000,
+  "request_timeout_seconds": 900,
+  "planner": "agent",
+  "opencode": {
+    "url": "http://127.0.0.1:4096",
+    "provider_id": "your-configured-provider",
+    "model_id": "your-configured-model",
+    "agent_id": "build"
+  },
+  "limits": {
+    "player_cooldown_seconds": 10,
+    "queue_capacity": 8,
+    "agent_runs_per_hour": 60,
+    "inference_calls_per_hour": 60
+  }
+}

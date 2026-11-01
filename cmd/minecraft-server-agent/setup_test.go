@@ -22,7 +22,7 @@ func TestSetupCreatesValidatedConfigurationWithoutSecrets(t *testing.T) {
 	t.Setenv("MSA_RCON_PASSWORD", "synthetic-rcon-secret")
 	path := filepath.Join(t.TempDir(), "agent.json")
 	var out bytes.Buffer
-	if err := setup(t.Context(), strings.NewReader("\n\n\n\n\n\nno\n"), &out, path); err != nil {
+	if err := setup(t.Context(), strings.NewReader("\n\ncommands\n\n\n\nno\n"), &out, path); err != nil {
 		t.Fatal(err)
 	}
 	c, err := config.Load(path)
@@ -71,7 +71,7 @@ func TestSetupCancellationInterruptsInputWithoutWriting(t *testing.T) {
 }
 
 func TestSetupRejectsIncompleteOrInvalidAnswersBeforeWriting(t *testing.T) {
-	for _, answers := range []string{"", "\nexample.com:25575\n\n\n\n\nno\n", "\n\n\n0\n\n\nno\n", "\n\n\n\n101\n\nno\n", "\n\n\n\n\n0\nno\n", "\n\n\nword\n", "\n\n\n\n\n\nmaybe\n"} {
+	for _, answers := range []string{"", "\nexample.com:25575\ncommands\n\n\n\nno\n", "\n\ncommands\n0\n\n\nno\n", "\n\ncommands\n\n101\n\nno\n", "\n\ncommands\n\n\n0\nno\n", "\n\ncommands\nword\n", "\n\ncommands\n\n\n\nmaybe\n"} {
 		path := filepath.Join(t.TempDir(), "agent.json")
 		if err := setup(t.Context(), strings.NewReader(answers), &bytes.Buffer{}, path); err == nil {
 			t.Fatal("invalid setup accepted")
@@ -106,7 +106,7 @@ func TestSetupConnectsChosenKeyWithoutInference(t *testing.T) {
 	}))
 	defer s.Close()
 	path := filepath.Join(t.TempDir(), "agent.json")
-	answers := strings.Join([]string{"", "", "opencode", s.URL, "openrouter", "publisher/model", "CHOSEN_PROVIDER_KEY", "5", "2", "20", "no", ""}, "\n")
+	answers := strings.Join([]string{"", "", "", s.URL, "openrouter", "publisher/model", "CHOSEN_PROVIDER_KEY", "5", "2", "20", "no", ""}, "\n")
 	var out bytes.Buffer
 	if err := setup(t.Context(), strings.NewReader(answers), &out, path); err != nil {
 		t.Fatal(err)
@@ -114,6 +114,9 @@ func TestSetupConnectsChosenKeyWithoutInference(t *testing.T) {
 	c, err := config.Load(path)
 	if err != nil || !connected || c.OpenCode.ModelID != "publisher/model" {
 		t.Fatal("provider setup failed")
+	}
+	if c.Planner != "agent" || c.RequestTimeoutSeconds != 900 || c.Limits.AgentRunsPerHour != 20 {
+		t.Fatal("setup did not default to full-agent mode with the requested interaction allowance")
 	}
 	b, _ := os.ReadFile(path)
 	if strings.Contains(string(b)+out.String(), "synthetic-") {

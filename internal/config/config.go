@@ -17,6 +17,7 @@ type Limits struct {
 	PlayerCooldownSeconds int `json:"player_cooldown_seconds"`
 	QueueCapacity         int `json:"queue_capacity"`
 	InferenceCallsPerHour int `json:"inference_calls_per_hour"`
+	AgentRunsPerHour      int `json:"agent_runs_per_hour,omitempty"`
 }
 
 type Config struct {
@@ -73,8 +74,8 @@ func (c *Config) Validate() error {
 	if c.PollIntervalMS < 100 || c.PollIntervalMS > 60000 {
 		return errors.New("poll_interval_ms must be between 100 and 60000")
 	}
-	if c.RequestTimeoutSeconds < 1 || c.RequestTimeoutSeconds > 300 {
-		return errors.New("request_timeout_seconds must be between 1 and 300")
+	if c.RequestTimeoutSeconds < 1 || c.RequestTimeoutSeconds > 3600 {
+		return errors.New("request_timeout_seconds must be between 1 and 3600")
 	}
 	if c.Planner == "" {
 		c.Planner = "commands"
@@ -82,15 +83,21 @@ func (c *Config) Validate() error {
 	if c.Limits == nil {
 		c.Limits = &Limits{PlayerCooldownSeconds: 10, QueueCapacity: 8, InferenceCallsPerHour: 60}
 	}
+	if c.Limits.AgentRunsPerHour == 0 {
+		c.Limits.AgentRunsPerHour = 60
+	}
+	if c.Limits.AgentRunsPerHour < 1 || c.Limits.AgentRunsPerHour > 10000 {
+		return errors.New("agent_runs_per_hour must be between 1 and 10000")
+	}
 	if c.Limits.PlayerCooldownSeconds < 1 || c.Limits.PlayerCooldownSeconds > 3600 || c.Limits.QueueCapacity < 1 || c.Limits.QueueCapacity > 100 || c.Limits.InferenceCallsPerHour < 1 || c.Limits.InferenceCallsPerHour > 10000 {
 		return errors.New("limits require player_cooldown_seconds=1..3600, queue_capacity=1..100 and inference_calls_per_hour=1..10000")
 	}
 	switch c.Planner {
 	case "commands":
 		if c.OpenCode != nil {
-			return errors.New("opencode configuration requires planner=opencode")
+			return errors.New("opencode configuration requires planner=agent or planner=opencode")
 		}
-	case "opencode":
+	case "opencode", "agent":
 		if c.OpenCode == nil {
 			return errors.New("opencode configuration is required")
 		}
@@ -98,7 +105,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 	default:
-		return errors.New("planner must be commands or opencode")
+		return errors.New("planner must be agent, commands or opencode")
 	}
 	return nil
 }

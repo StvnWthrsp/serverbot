@@ -29,13 +29,14 @@ type Journal interface {
 	Append(Record) error
 }
 type Record struct {
-	Time   time.Time `json:"time"`
-	ID     string    `json:"id"`
-	Player string    `json:"player"`
-	UUID   string    `json:"uuid,omitempty"`
-	Action string    `json:"action,omitempty"`
-	Target string    `json:"target,omitempty"`
-	State  string    `json:"state"`
+	Time      time.Time `json:"time"`
+	ID        string    `json:"id"`
+	Player    string    `json:"player"`
+	UUID      string    `json:"uuid,omitempty"`
+	Action    string    `json:"action,omitempty"`
+	Target    string    `json:"target,omitempty"`
+	State     string    `json:"state"`
+	SessionID string    `json:"session_id,omitempty"`
 }
 
 type Engine struct {
