@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StvnWthrsp/serverbot/internal/bot"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/bot"
 )
 
 const Version = "2.0.32"

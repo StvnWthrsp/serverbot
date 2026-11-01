@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/StvnWthrsp/serverbot/internal/minecraft"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/minecraft"
 )
 
 const testUUID = "12345678-1234-1234-1234-123456789abc"
@@ -32,8 +33,9 @@ func (p plannerFunc) Plan(ctx context.Context, text string) (Plan, error) { retu
 
 type badJournal struct{}
 
-func (badJournal) Seen(string) bool    { return false }
-func (badJournal) Append(Record) error { return errors.New("disk full") }
+func (badJournal) Seen(string) bool             { return false }
+func (badJournal) LastRequest(string) time.Time { return time.Time{} }
+func (badJournal) Append(Record) error          { return errors.New("disk full") }
 
 func fixture(t *testing.T) (*Engine, string, *fakeCommander) {
 	t.Helper()
@@ -51,7 +53,7 @@ func fixture(t *testing.T) (*Engine, string, *fakeCommander) {
 
 func TestAuthorizedChatWhitelistsVerifiesAndDeduplicates(t *testing.T) {
 	e, _, rc := fixture(t)
-	req, ok := minecraft.ParseChat("[12Jun2026 08:58:05.596] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: <Admin> serverbot whitelist Friend_1")
+	req, ok := minecraft.ParseChat("[12Jun2026 08:58:05.596] [Server thread/INFO] [net.minecraft.server.MinecraftServer/]: <Admin> minecraft-server-agent whitelist Friend_1")
 	if !ok {
 		t.Fatal("fixture chat was not parsed")
 	}
@@ -73,7 +75,7 @@ func TestUntrustedPlayerNeverReachesPlanner(t *testing.T) {
 		t.Fatal("unauthorized chat reached planner")
 		return Plan{}, nil
 	})
-	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Stranger", Text: "serverbot whitelist Friend_1"})
+	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Stranger", Text: "minecraft-server-agent whitelist Friend_1"})
 	if err == nil || len(rc.commands) != 0 {
 		t.Fatal("unauthorized request executed")
 	}
@@ -95,7 +97,7 @@ func TestAuthorizationFailsClosed(t *testing.T) {
 			case "missing-properties":
 				os.Remove(filepath.Join(dir, "server.properties"))
 			}
-			_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "serverbot status"})
+			_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "minecraft-server-agent status"})
 			if err == nil || len(rc.commands) != 0 {
 				t.Fatal("failed open")
 			}
@@ -109,7 +111,7 @@ func TestRevocationDuringPlanning(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "ops.json"), []byte("[]"), 0600)
 		return Plan{Action: "status"}, nil
 	})
-	if _, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "serverbot status"}); err == nil || len(rc.commands) != 0 {
+	if _, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "minecraft-server-agent status"}); err == nil || len(rc.commands) != 0 {
 		t.Fatal("revoked authorization used")
 	}
 }
@@ -130,7 +132,7 @@ func TestPlannerCannotEscapeOperationBoundary(t *testing.T) {
 func TestAuditFailurePreventsExecution(t *testing.T) {
 	e, _, rc := fixture(t)
 	e.Audit = badJournal{}
-	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "serverbot status"})
+	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "minecraft-server-agent status"})
 	if err == nil || len(rc.commands) != 0 {
 		t.Fatal("executed without audit")
 	}
@@ -139,7 +141,7 @@ func TestAuditFailurePreventsExecution(t *testing.T) {
 func TestWhitelistMustBeVerified(t *testing.T) {
 	e, _, rc := fixture(t)
 	rc.verification = "There are 1 whitelisted players: OtherFriend"
-	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "serverbot whitelist Friend_1"})
+	_, err := e.Handle(t.Context(), minecraft.Request{ID: "one", Player: "Admin", Text: "minecraft-server-agent whitelist Friend_1"})
 	if err == nil {
 		t.Fatal("unverified mutation reported success")
 	}

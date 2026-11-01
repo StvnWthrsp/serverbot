@@ -4,6 +4,11 @@
   "audit_file": "data/audit.jsonl",
   "poll_interval_ms": 1000,
   "request_timeout_seconds": 45,
+  "limits": {
+    "player_cooldown_seconds": 10,
+    "queue_capacity": 8,
+    "inference_calls_per_hour": 60
+  },
   "planner": "opencode",
   "opencode": {
     "url": "http://127.0.0.1:4096",

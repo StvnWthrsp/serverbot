@@ -1,4 +1,4 @@
-# ServerBot
+# Minecraft Server Agent
 
 Go Minecraft administration assistant. Work on feature branches. GitHub is primary; use `go run ./tools/sync` to push feature branches to GitHub and GitLab. Keep checks portable between both providers. Run `go run ./tools/check` before committing. For planner changes also run `go run ./tools/contract` on Linux amd64.
 

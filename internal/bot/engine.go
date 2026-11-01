@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/StvnWthrsp/serverbot/internal/minecraft"
+	"github.com/StvnWthrsp/minecraft-server-agent/internal/minecraft"
 )
 
 type Plan struct {
@@ -25,6 +25,7 @@ type Commander interface {
 }
 type Journal interface {
 	Seen(string) bool
+	LastRequest(string) time.Time
 	Append(Record) error
 }
 type Record struct {
@@ -38,16 +39,20 @@ type Record struct {
 }
 
 type Engine struct {
-	Auth    Authorizer
-	Planner Planner
-	RCON    Commander
-	Audit   Journal
-	mu      sync.Mutex
+	Auth     Authorizer
+	Planner  Planner
+	RCON     Commander
+	Audit    Journal
+	Cooldown time.Duration
+	mu       sync.Mutex
 }
 
 func (e *Engine) Handle(ctx context.Context, req minecraft.Request) (string, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if req.ID == "" || len(req.ID) > 128 || !minecraft.ValidUsername(req.Player) || len(req.Text) > 512 {
 		return "", errors.New("invalid request")
 	}
@@ -57,6 +62,12 @@ func (e *Engine) Handle(ctx context.Context, req minecraft.Request) (string, err
 	uuid, err := e.Auth.Authorize(req.Player)
 	if err != nil {
 		return "", err
+	}
+	if e.Cooldown > 0 && time.Since(e.Audit.LastRequest(uuid)) < e.Cooldown {
+		return "", ErrCooldown
+	}
+	if err := e.Audit.Append(Record{Time: time.Now().UTC(), ID: req.ID, Player: req.Player, UUID: uuid, State: "accepted"}); err != nil {
+		return "", errors.New("cannot record request; operation refused")
 	}
 	plan, err := e.Planner.Plan(ctx, req.Text)
 	if err != nil {
@@ -128,8 +139,8 @@ type CommandPlanner struct{}
 
 func (CommandPlanner) Plan(_ context.Context, text string) (Plan, error) {
 	parts := strings.Fields(text)
-	if len(parts) < 2 || !strings.EqualFold(parts[0], "serverbot") {
-		return Plan{}, errors.New("use: serverbot status | serverbot whitelist <username>")
+	if len(parts) < 2 || !strings.EqualFold(parts[0], "minecraft-server-agent") {
+		return Plan{}, errors.New("use: minecraft-server-agent status | minecraft-server-agent whitelist <username>")
 	}
 	if len(parts) == 2 && strings.EqualFold(parts[1], "status") {
 		return Plan{Action: "status"}, nil
@@ -142,5 +153,5 @@ func (CommandPlanner) Plan(_ context.Context, text string) (Plan, error) {
 			return Plan{Action: "whitelist_add", Target: parts[3]}, nil
 		}
 	}
-	return Plan{}, errors.New("use: serverbot status | serverbot whitelist <username>")
+	return Plan{}, errors.New("use: minecraft-server-agent status | minecraft-server-agent whitelist <username>")
 }

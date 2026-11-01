@@ -34,16 +34,16 @@ func run() error {
 	}
 	checksums := strings.Builder{}
 	for _, target := range []struct{ os, arch string }{{"linux", "amd64"}, {"linux", "arm64"}, {"windows", "amd64"}, {"windows", "arm64"}} {
-		name := "serverbot"
+		name := "minecraft-server-agent"
 		if target.os == "windows" {
 			name += ".exe"
 		}
-		tmp, err := os.MkdirTemp("", "serverbot-release-")
+		tmp, err := os.MkdirTemp("", "minecraft-server-agent-release-")
 		if err != nil {
 			return err
 		}
 		binary := filepath.Join(tmp, name)
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -X main.version="+*version, "-o", binary, "./cmd/serverbot")
+		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -X main.version="+*version, "-o", binary, "./cmd/minecraft-server-agent")
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+target.os, "GOARCH="+target.arch)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -51,9 +51,9 @@ func run() error {
 			os.RemoveAll(tmp)
 			return err
 		}
-		archiveName := fmt.Sprintf("serverbot_%s_%s_%s.zip", *version, target.os, target.arch)
+		archiveName := fmt.Sprintf("minecraft-server-agent_%s_%s_%s.zip", *version, target.os, target.arch)
 		archive := filepath.Join(*output, archiveName)
-		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json", "config.opencode.example.json": "config.opencode.example.json", "docs/opencode.md": "docs/opencode.md", "docs/openrouter.md": "docs/openrouter.md", "examples/opencode/opencode.json": "examples/opencode/opencode.json", "examples/opencode/openrouter.json": "examples/opencode/openrouter.json"})
+		err = pack(archive, map[string]string{name: binary, "README.md": "README.md", "LICENSE": "LICENSE", "config.example.json": "config.example.json", "config.opencode.example.json": "config.opencode.example.json", "docs/opencode.md": "docs/opencode.md", "docs/openrouter.md": "docs/openrouter.md", "docs/setup.md": "docs/setup.md", "docs/request-limits.md": "docs/request-limits.md", "examples/opencode/opencode.json": "examples/opencode/opencode.json", "examples/opencode/openrouter.json": "examples/opencode/openrouter.json"})
 		os.RemoveAll(tmp)
 		if err != nil {
 			return err
@@ -80,7 +80,7 @@ func pack(path string, files map[string]string) error {
 		return err
 	}
 	z := zip.NewWriter(f)
-	names := []string{"serverbot", "serverbot.exe", "README.md", "LICENSE", "config.example.json", "config.opencode.example.json", "docs/opencode.md", "docs/openrouter.md", "examples/opencode/opencode.json", "examples/opencode/openrouter.json"}
+	names := []string{"minecraft-server-agent", "minecraft-server-agent.exe", "README.md", "LICENSE", "config.example.json", "config.opencode.example.json", "docs/opencode.md", "docs/openrouter.md", "docs/setup.md", "docs/request-limits.md", "examples/opencode/opencode.json", "examples/opencode/openrouter.json"}
 	for _, name := range names {
 		source, ok := files[name]
 		if !ok {
@@ -88,7 +88,7 @@ func pack(path string, files map[string]string) error {
 		}
 		h := &zip.FileHeader{Name: name, Method: zip.Deflate, Modified: time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)}
 		h.SetMode(0644)
-		if name == "serverbot" || name == "serverbot.exe" {
+		if name == "minecraft-server-agent" || name == "minecraft-server-agent.exe" {
 			h.SetMode(0755)
 		}
 		w, err := z.CreateHeader(h)

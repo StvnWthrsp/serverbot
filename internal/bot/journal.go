@@ -7,12 +7,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 type FileJournal struct {
-	file *os.File
-	seen map[string]bool
-	lock string
+	file  *os.File
+	seen  map[string]bool
+	lock  string
+	last  map[string]time.Time
+	calls []time.Time
 }
 
 // One process owns a journal. Started jobs are never automatically replayed.
@@ -29,7 +33,7 @@ func OpenJournal(path string) (*FileJournal, error) {
 		os.Remove(lock)
 		return nil, err
 	}
-	j := &FileJournal{file: f, seen: make(map[string]bool), lock: lock}
+	j := &FileJournal{file: f, seen: make(map[string]bool), last: make(map[string]time.Time), lock: lock}
 	info, err := f.Stat()
 	if err != nil {
 		j.Close()
@@ -53,7 +57,12 @@ func OpenJournal(path string) (*FileJournal, error) {
 			j.Close()
 			return nil, errors.New("audit journal is corrupt; recovery required")
 		}
+		if (r.State == "inference_started" || r.State == "accepted") && r.Time.IsZero() {
+			j.Close()
+			return nil, errors.New("journal reservation has no timestamp; recovery required")
+		}
 		j.seen[r.ID] = true
+		j.remember(r)
 	}
 	if err := s.Err(); err != nil {
 		j.Close()
@@ -61,7 +70,21 @@ func OpenJournal(path string) (*FileJournal, error) {
 	}
 	return j, nil
 }
-func (j *FileJournal) Seen(id string) bool { return j.seen[id] }
+func (j *FileJournal) Seen(id string) bool               { return j.seen[id] }
+func (j *FileJournal) LastRequest(uuid string) time.Time { return j.last[strings.ToLower(uuid)] }
+
+func (j *FileJournal) remember(r Record) {
+	if r.State == "accepted" || r.State == "started" {
+		key := strings.ToLower(r.UUID)
+		if r.Time.After(j.last[key]) {
+			j.last[key] = r.Time
+		}
+	}
+	if r.State == "inference_started" && !r.Time.Before(time.Now().Add(-time.Hour)) {
+		j.calls = append(j.calls, r.Time)
+	}
+}
+
 func (j *FileJournal) Append(r Record) error {
 	b, err := json.Marshal(r)
 	if err != nil {
@@ -79,6 +102,7 @@ func (j *FileJournal) Append(r Record) error {
 		return err
 	}
 	j.seen[r.ID] = true
+	j.remember(r)
 	return nil
 }
 func (j *FileJournal) Close() error {

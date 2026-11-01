@@ -14,8 +14,10 @@
 - [x] Pin and test OpenCode 2.0.32's headless stateless API.
 - [x] Tool-free OpenCode planner producing validated JSON proposals.
 - [x] Model/API deadlines, cancellation, failure/refusal handling and bounded responses.
-- [x] Provider API-key setup through ServerBot and an OpenRouter configuration example.
-- [ ] Global rate/token/cost budgets (provider-side limits required meanwhile).
+- [x] Provider API-key setup through Minecraft Server Agent and an OpenRouter configuration example.
+- [x] Guided setup and independent, actionable connection diagnostics.
+- [x] Durable per-player cooldowns, bounded queue and rolling hourly inference-attempt budget.
+- [ ] Token/currency accounting and budgets (provider-side limits required meanwhile).
 - [ ] Authenticated UUID events and roles beyond OP.
 - [ ] Durable job queue and reconciliation of interrupted jobs.
 - [ ] Supervised restart: save/stop, wait, start, readiness and recovery.
